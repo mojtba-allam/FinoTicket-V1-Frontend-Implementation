@@ -1,5 +1,6 @@
 import React, { useState, useEffect, createContext, useContext, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { AppContext } from './app/providers';
 import { LayoutDashboard, Inbox, Users, Search, BookOpen, BarChart3, Settings, LogOut, Menu, X, Bell, ChevronLeft, Package, Tags, Building2, UserCheck, Shield, Workflow, Zap, Globe, Webhook, FileSearch, Ticket as TicketIcon, MessageSquare, Clock, AlertTriangle, TrendingUp, UserPlus, Plus, Send, Paperclip, Eye, EyeOff, Star, Filter, ArrowUpDown, MoreHorizontal, CheckCircle2, XCircle, Brain, Lightbulb, Link2, ChevronDown, Home, History } from 'lucide-react';
 import { Button, Input, Textarea, Select, Badge, StatusBadge, Avatar, Modal, Drawer, Toast, EmptyState, Loading, Tabs, CopyButton, Card, KPICard, SearchInput, SegmentedControl, ErrorState, DegradedBanner, FileUpload, Pagination, Skeleton } from './components/ui';
 import { NotificationCenter } from './components/NotificationCenter';
@@ -14,18 +15,6 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import LandingPage from './pages/landing/LandingPage';
 
 // ========== CONTEXT ==========
-interface AppContextType {
-  user: typeof mockUser;
-  lang: Lang;
-  t: typeof fa;
-  setLang: (l: Lang) => void;
-  product: typeof mockProducts[0];
-  setProduct: (p: typeof mockProducts[0]) => void;
-  presence: Presence;
-  setPresence: (p: Presence) => void;
-  showToast: (msg: string, type?: 'success' | 'error' | 'warning' | 'info') => void;
-}
-const AppContext = createContext<AppContextType>({} as AppContextType);
 const useApp = () => useContext(AppContext);
 
 // ========== APP PROVIDER ==========
