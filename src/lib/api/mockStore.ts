@@ -1,10 +1,11 @@
 // Mock Service Worker setup for FinoTicket API
-// This provides in-memory persistence for all API operations
+// This provides in-memory persistence for all API operations with React reactivity
 
 import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts } from '../../data/mock';
 import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product } from '../../types';
+import type { TimelineEvent } from '../../components/Timeline';
 
-// In-memory store
+// In-memory store with subscription support
 class MockStore {
   tickets: Ticket[] = [...mockTickets];
   customers: Customer[] = [...mockCustomers];
@@ -17,6 +18,27 @@ class MockStore {
   knowledgeBases: KnowledgeBase[] = [...mockKnowledgeBases];
   articles: Article[] = [...mockArticles];
   products: Product[] = [...mockProducts];
+  
+  // Append-only history log per ticket
+  historyByTicketId: Map<string, TimelineEvent[]> = new Map();
+  
+  // Subscription system for React reactivity
+  private listeners: Set<() => void> = new Set();
+  private version: number = 0;
+
+  subscribe(listener: () => void) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  getSnapshot() {
+    return this.version;
+  }
+
+  private notify() {
+    this.version++;
+    this.listeners.forEach(listener => listener());
+  }
 
   // Tickets
   getTickets() {
@@ -25,6 +47,22 @@ class MockStore {
 
   getTicket(id: string) {
     return this.tickets.find(t => t.id === id);
+  }
+
+  getTicketHistory(id: string): TimelineEvent[] {
+    return this.historyByTicketId.get(id) || [];
+  }
+
+  private addHistoryEvent(ticketId: string, event: Omit<TimelineEvent, 'id' | 'timestamp'>) {
+    if (!this.historyByTicketId.has(ticketId)) {
+      this.historyByTicketId.set(ticketId, []);
+    }
+    const events = this.historyByTicketId.get(ticketId)!;
+    events.push({
+      ...event,
+      id: `evt-${Date.now()}-${Math.random()}`,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   createTicket(ticket: Partial<Ticket>) {
@@ -57,6 +95,15 @@ class MockStore {
       updated_at: new Date().toISOString(),
     };
     this.tickets.unshift(newTicket);
+    
+    // Add history event
+    this.addHistoryEvent(newTicket.id, {
+      type: 'created',
+      title: 'تیکت ایجاد شد',
+      actor: ticket.customer_name || 'مشتری',
+    });
+    
+    this.notify();
     return newTicket;
   }
 
@@ -64,19 +111,46 @@ class MockStore {
     const index = this.tickets.findIndex(t => t.id === id);
     if (index === -1) return null;
     this.tickets[index] = { ...this.tickets[index], ...updates, updated_at: new Date().toISOString() };
+    this.notify();
     return this.tickets[index];
   }
 
   assignTicket(id: string, assignee_id: string, assignee_name: string) {
-    return this.updateTicket(id, { assignee_id, assignee_name });
+    const result = this.updateTicket(id, { assignee_id, assignee_name });
+    if (result) {
+      this.addHistoryEvent(id, {
+        type: 'assigned',
+        title: `ارجاع به ${assignee_name}`,
+        actor: 'سیستم',
+      });
+    }
+    return result;
   }
 
   changeTicketStatus(id: string, status: Ticket['status']) {
-    return this.updateTicket(id, { status });
+    const result = this.updateTicket(id, { status });
+    if (result) {
+      this.addHistoryEvent(id, {
+        type: 'status_change',
+        title: `وضعیت تغییر کرد`,
+        description: status,
+        actor: 'کارشناس',
+      });
+    }
+    return result;
   }
 
   changeTicketPriority(id: string, priority: Ticket['priority']) {
-    return this.updateTicket(id, { priority });
+    const result = this.updateTicket(id, { priority });
+    if (result) {
+      this.addHistoryEvent(id, {
+        type: 'updated',
+        title: `اولویت تغییر کرد`,
+        description: priority,
+        actor: 'کارشناس',
+      });
+    }
+    return result;
   }
 
   addWatcher(id: string, watcher_id: string) {
@@ -84,6 +158,12 @@ class MockStore {
     if (!ticket) return null;
     if (!ticket.watchers.includes(watcher_id)) {
       ticket.watchers.push(watcher_id);
+      this.addHistoryEvent(id, {
+        type: 'updated',
+        title: 'ناظر اضافه شد',
+        actor: 'کارشناس',
+      });
+      this.notify();
     }
     return ticket;
   }
@@ -92,11 +172,25 @@ class MockStore {
     const ticket = this.getTicket(id);
     if (!ticket) return null;
     ticket.watchers = ticket.watchers.filter((w: string) => w !== watcher_id);
+    this.addHistoryEvent(id, {
+      type: 'updated',
+      title: 'ناظر حذف شد',
+      actor: 'کارشناس',
+    });
+    this.notify();
     return ticket;
   }
 
   updateTicketTags(id: string, tags: string[]) {
-    return this.updateTicket(id, { tags });
+    const result = this.updateTicket(id, { tags });
+    if (result) {
+      this.addHistoryEvent(id, {
+        type: 'updated',
+        title: 'برچسب‌ها بروزرسانی شد',
+        actor: 'کارشناس',
+      });
+    }
+    return result;
   }
 
   // Messages
@@ -118,6 +212,16 @@ class MockStore {
       created_at: new Date().toISOString(),
     };
     this.messages.push(newMessage);
+    
+    // Add history event for message
+    this.addHistoryEvent(newMessage.ticket_id, {
+      type: 'message',
+      title: `${newMessage.sender_name} پیام ارسال کرد`,
+      description: newMessage.body.substring(0, 100) + (newMessage.body.length > 100 ? '...' : ''),
+      actor: newMessage.sender_name,
+    });
+    
+    this.notify();
     return newMessage;
   }
 
@@ -142,6 +246,7 @@ class MockStore {
       created_at: new Date().toISOString(),
     };
     this.customers.push(newCustomer);
+    this.notify();
     return newCustomer;
   }
 
@@ -149,6 +254,7 @@ class MockStore {
     const index = this.customers.findIndex(c => c.id === id);
     if (index === -1) return null;
     this.customers[index] = { ...this.customers[index], ...updates };
+    this.notify();
     return this.customers[index];
   }
 
@@ -168,6 +274,7 @@ class MockStore {
       sort_order: category.sort_order || this.categories.length + 1,
     };
     this.categories.push(newCategory);
+    this.notify();
     return newCategory;
   }
 
@@ -185,6 +292,7 @@ class MockStore {
       status: department.status || 'ACTIVE',
     };
     this.departments.push(newDepartment);
+    this.notify();
     return newDepartment;
   }
 
@@ -204,6 +312,7 @@ class MockStore {
       members: team.members || [],
     };
     this.teams.push(newTeam);
+    this.notify();
     return newTeam;
   }
 
@@ -223,6 +332,7 @@ class MockStore {
       status: policy.status || 'ACTIVE',
     };
     this.slaPolicies.push(newPolicy);
+    this.notify();
     return newPolicy;
   }
 
@@ -239,12 +349,24 @@ class MockStore {
     const index = this.products.findIndex(p => p.id === id);
     if (index === -1) return null;
     this.products[index] = { ...this.products[index], ...updates };
+    this.notify();
     return this.products[index];
   }
 }
 
 // Singleton store
 export const mockStore = new MockStore();
+
+// React hook for subscribing to store changes
+import { useSyncExternalStore } from 'react';
+
+export function useMockStore() {
+  const version = useSyncExternalStore(
+    (callback) => mockStore.subscribe(callback),
+    () => mockStore.getSnapshot()
+  );
+  return version;
+}
 
 // API client
 export const api = {
