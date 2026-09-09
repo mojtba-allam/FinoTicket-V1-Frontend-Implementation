@@ -5,9 +5,11 @@ import { Button, SearchInput, StatusBadge, EmptyState, Card, Badge } from '../..
 import { FilterBar, useTicketFilters } from '../../components/FilterBar';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
+import { useCanMutate } from '../../components/ProtectedRoute';
 
 export default function TicketListPage() {
   const { t, lang } = useApp();
+  const canMutate = useCanMutate();
   const navigate = useNavigate();
   const [filters, setFilters] = useTicketFilters();
   const [search, setSearch] = useState('');
@@ -44,9 +46,11 @@ export default function TicketListPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">{t.nav.tickets}</h1>
-        <Button onClick={() => navigate('/desk/tickets/new')}>
-          <Plus className="h-4 w-4" /> {t.ticket.create}
-        </Button>
+        {canMutate && (
+          <Button onClick={() => navigate('/desk/tickets/new')}>
+            <Plus className="h-4 w-4" /> {t.ticket.create}
+          </Button>
+        )}
       </div>
 
       <Card className="mb-4 !p-4">

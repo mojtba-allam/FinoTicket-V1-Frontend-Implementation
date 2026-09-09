@@ -8,7 +8,7 @@ import { Timeline, type TimelineEvent } from '../../components/Timeline';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
 import { useCanMutate } from '../../components/ProtectedRoute';
-import { mockAgents, mockTeams, mockDepartments, mockAIAnalyses, mockAISuggestions, mockTickets } from '../../data/mock';
+import { mockAgents, mockTeams, mockDepartments, mockAIAnalyses, mockAISuggestions } from '../../data/mock';
 
 export default function TicketDetailPage() {
   const { id } = useParams();
@@ -34,6 +34,7 @@ export default function TicketDetailPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [tags, setTags] = useState<string[]>(ticket?.tags || []);
   const [watchers, setWatchers] = useState<string[]>(ticket?.watchers || []);
+  const [suggestions, setSuggestions] = useState(mockAISuggestions.filter(s => s.ticket_id === id));
 
   // Sort history events by timestamp (newest first)
   const sortedHistoryEvents = useMemo(() => {
@@ -49,7 +50,6 @@ export default function TicketDetailPage() {
   }
 
   const analyses = mockAIAnalyses.filter(a => a.ticket_id === id);
-  const suggestions = mockAISuggestions.filter(s => s.ticket_id === id);
 
   const handleAssign = (assignee_id: string, assignee_name: string) => {
     mockStore.assignTicket(ticket.id, assignee_id, assignee_name);
@@ -326,10 +326,24 @@ export default function TicketDetailPage() {
                 <p className="text-xs mb-2 leading-relaxed">{s.content}</p>
                 {s.status === 'PENDING' && (
                   <div className="flex gap-1">
-                    <Button size="sm" variant="success" className="flex-1 text-xs" onClick={() => showToast(lang === 'fa' ? 'پیشنهاد قبول شد' : 'Suggestion accepted')}>
+                    <Button size="sm" variant="success" className="flex-1 text-xs" onClick={() => {
+                      // Insert suggestion into composer
+                      setReply(s.content);
+                      // Update suggestion status
+                      setSuggestions(prev => prev.map(sug => 
+                        sug.id === s.id ? { ...sug, status: 'ACCEPTED' as const } : sug
+                      ));
+                      showToast(lang === 'fa' ? 'پیشنهاد در پاسخ‌دهنده قرار گرفت' : 'Suggestion inserted into composer', 'success');
+                    }}>
                       <CheckCircle2 className="h-3 w-3" /> {lang === 'fa' ? 'قبول' : 'Accept'}
                     </Button>
-                    <Button size="sm" variant="danger" className="flex-1 text-xs" onClick={() => showToast(lang === 'fa' ? 'پیشنهاد رد شد' : 'Suggestion rejected')}>
+                    <Button size="sm" variant="danger" className="flex-1 text-xs" onClick={() => {
+                      // Update suggestion status
+                      setSuggestions(prev => prev.map(sug => 
+                        sug.id === s.id ? { ...sug, status: 'REJECTED' as const } : sug
+                      ));
+                      showToast(lang === 'fa' ? 'پیشنهاد رد شد' : 'Suggestion rejected', 'info');
+                    }}>
                       <XCircle className="h-3 w-3" /> {lang === 'fa' ? 'رد' : 'Reject'}
                     </Button>
                   </div>
@@ -343,16 +357,19 @@ export default function TicketDetailPage() {
         <div className="p-4">
           <h3 className="font-semibold text-sm mb-3">{lang === 'fa' ? 'تیکت‌های مشابه' : 'Similar Tickets'}</h3>
           <div className="space-y-2">
-            {mockTickets.filter(tk => tk.id !== ticket.id).slice(0, 3).map(tk => (
-              <div key={tk.id} onClick={() => navigate(`/desk/tickets/${tk.id}`)}
-                className="p-2.5 rounded-lg border border-border hover:bg-surface-hover cursor-pointer">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-text-muted">{tk.ticket_number}</span>
-                  <StatusBadge status={tk.status} />
+            {mockStore.getTickets()
+              .filter(tk => tk.id !== ticket.id && tk.customer_id === ticket.customer_id)
+              .slice(0, 3)
+              .map(tk => (
+                <div key={tk.id} onClick={() => navigate(`/desk/tickets/${tk.id}`)}
+                  className="p-2.5 rounded-lg border border-border hover:bg-surface-hover cursor-pointer">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-mono text-text-muted">{tk.ticket_number}</span>
+                    <StatusBadge status={tk.status} />
+                  </div>
+                  <p className="text-xs truncate">{tk.subject}</p>
                 </div>
-                <p className="text-xs truncate">{tk.subject}</p>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       </div>
