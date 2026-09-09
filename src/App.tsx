@@ -13,6 +13,9 @@ import { mockUser, mockProducts, mockTickets, mockMessages, mockCustomers, mockC
 import type { Ticket, Message, Role, Presence, TicketStatus, Priority } from './types';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
 import LandingPage from './pages/landing/LandingPage';
+import NewDeskPage from './pages/desk/DeskPage';
+import NewTicketDetailPage from './pages/desk/TicketDetailPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // ========== CONTEXT ==========
 const useApp = () => useContext(AppContext);
@@ -2058,18 +2061,19 @@ function NotFoundPage() {
 export default function App() {
   return (
     <AppProvider>
-      <HashRouter>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/privacy" element={<LegalPage type="privacy" />} />
-          <Route path="/terms" element={<LegalPage type="terms" />} />
-          <Route path="/widget" element={<WidgetPage />} />
-          <Route path="/desk" element={<Layout><DeskPage /></Layout>} />
-          <Route path="/desk/tickets" element={<Layout><TicketListPage /></Layout>} />
-          <Route path="/desk/tickets/new" element={<Layout><CreateTicketPage /></Layout>} />
-          <Route path="/desk/tickets/:id" element={<Layout><TicketDetailPage /></Layout>} />
+      <ErrorBoundary>
+        <HashRouter>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/privacy" element={<LegalPage type="privacy" />} />
+            <Route path="/terms" element={<LegalPage type="terms" />} />
+            <Route path="/widget" element={<WidgetPage />} />
+            <Route path="/desk" element={<Layout><NewDeskPage /></Layout>} />
+            <Route path="/desk/tickets" element={<Layout><TicketListPage /></Layout>} />
+            <Route path="/desk/tickets/new" element={<Layout><CreateTicketPage /></Layout>} />
+            <Route path="/desk/tickets/:id" element={<Layout><NewTicketDetailPage /></Layout>} />
           <Route path="/desk/customers" element={<Layout><CustomersPage /></Layout>} />
           <Route path="/desk/customers/:id" element={<Layout><CustomerDetailPage /></Layout>} />
           <Route path="/desk/search" element={<Layout><SearchPage /></Layout>} />
@@ -2093,6 +2097,7 @@ export default function App() {
           <Route path="*" element={<Layout><NotFoundPage /></Layout>} />
         </Routes>
       </HashRouter>
+      </ErrorBoundary>
     </AppProvider>
   );
 }
