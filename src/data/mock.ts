@@ -7,8 +7,8 @@ export const mockUser: User = {
 };
 
 export const mockProducts: Product[] = [
-  { id: 'p-001', name: 'فینوپال', slug: 'finopal', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'EMAIL', 'API'], widget_branding: { primary_color: '#6366f1', welcome_text: 'سلام! چطور می‌تونیم کمکتون کنیم؟', title: 'پشتیبانی فینوپال' }, created_at: '2024-01-01' },
-  { id: 'p-002', name: 'فینوآی‌دی', slug: 'finoid', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'CHAT'], widget_branding: { primary_color: '#0ea5e9', welcome_text: 'پشتیبانی هویت دیجیتال', title: 'پشتیبانی فینوآی‌دی' }, created_at: '2024-02-01' },
+  { id: 'p-001', name: 'فینوپال', slug: 'finopal', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'EMAIL', 'API'], widget_branding: { primary_color: '#0B7C8C', welcome_text: 'سلام! چطور می‌تونیم کمکتون کنیم؟', title: 'پشتیبانی فینوپال' }, created_at: '2024-01-01' },
+  { id: 'p-002', name: 'فینوآی‌دی', slug: 'finoid', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'CHAT'], widget_branding: { primary_color: '#0891B2', welcome_text: 'پشتیبانی هویت دیجیتال', title: 'پشتیبانی فینوآی‌دی' }, created_at: '2024-02-01' },
   { id: 'p-003', name: 'فینوبیت', slug: 'finobit', status: 'SUSPENDED', settings: {}, channels: ['WEB', 'EMAIL'], created_at: '2024-03-01' },
 ];
 

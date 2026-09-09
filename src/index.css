@@ -1,39 +1,59 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
-  
-  --color-success-50: #ecfdf5;
-  --color-success-500: #10b981;
+  /* Brand — Fino Ocean */
+  --color-brand-50:  #E7F6F8;
+  --color-brand-100: #C5EBEF;
+  --color-brand-200: #8FD6DE;
+  --color-brand-300: #4BB8C6;
+  --color-brand-400: #1F97A8;
+  --color-brand-500: #0B7C8C;
+  --color-brand-600: #096572;
+  --color-brand-700: #074E59;
+  --color-brand-800: #053A43;
+  --color-brand-900: #03272E;
+
+  /* Accent — Signal Cyan */
+  --color-accent-400: #22D3EE;
+  --color-accent-500: #06B6D4;
+  --color-accent-600: #0891B2;
+
+  /* Ember — CTAs on marketing + critical urgency */
+  --color-ember-400: #FB923C;
+  --color-ember-500: #F97316;
+  --color-ember-600: #EA580C;
+
+  /* Success / Warning / Danger */
+  --color-success-50: #ECFDF5;
+  --color-success-500: #10B981;
   --color-success-600: #059669;
-  
-  --color-warning-50: #fffbeb;
-  --color-warning-500: #f59e0b;
-  --color-warning-600: #d97706;
-  
-  --color-danger-50: #fef2f2;
-  --color-danger-500: #ef4444;
-  --color-danger-600: #dc2626;
-  
-  --color-surface: #ffffff;
-  --color-surface-alt: #f8fafc;
-  --color-surface-hover: #f1f5f9;
-  --color-border: #e2e8f0;
-  --color-border-strong: #cbd5e1;
-  --color-text: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
-  
-  --font-sans: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+  --color-warning-50: #FFFBEB;
+  --color-warning-500: #F59E0B;
+  --color-warning-600: #D97706;
+  --color-danger-50: #FEF2F2;
+  --color-danger-500: #EF4444;
+  --color-danger-600: #DC2626;
+
+  /* Surfaces — cool atmosphere */
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F0F7FA;
+  --color-surface-muted: #E4EEF2;
+  --color-surface-hover: #D9E8EE;
+  --color-border: #C9D9E0;
+  --color-border-strong: #9BB3BF;
+
+  /* Text */
+  --color-text: #0C1B2A;
+  --color-text-secondary: #3D5563;
+  --color-text-muted: #6B8491;
+
+  /* Gradients */
+  --gradient-hero: linear-gradient(135deg, #03272E 0%, #074E59 45%, #0B7C8C 100%);
+  --gradient-mesh: radial-gradient(ellipse at 20% 20%, rgba(6,182,212,0.18), transparent 50%),
+                   radial-gradient(ellipse at 80% 0%, rgba(249,115,22,0.12), transparent 40%),
+                   linear-gradient(180deg, #F0F7FA 0%, #E7F6F8 100%);
+
+  --font-sans: 'Vazirmatn', 'IBM Plex Sans Arabic', system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -62,19 +82,19 @@ body { font-family: var(--font-sans); background: var(--color-surface-alt); colo
 :focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; border-radius: 4px; }
 
 /* Ticket status colors */
-.status-open { background: #dbeafe; color: #1e40af; }
-.status-in_progress { background: #fef3c7; color: #92400e; }
+.status-open { background: #E7F6F8; color: #074E59; }
+.status-in_progress { background: #FFFBEB; color: #92400e; }
 .status-waiting_customer { background: #fce7f3; color: #9d174d; }
-.status-waiting_internal { background: #e0e7ff; color: #3730a3; }
-.status-resolved { background: #d1fae5; color: #065f46; }
-.status-closed { background: #f1f5f9; color: #475569; }
+.status-waiting_internal { background: #E7F6F8; color: #053A43; }
+.status-resolved { background: #ECFDF5; color: #065f46; }
+.status-closed { background: #E4EEF2; color: #3D5563; }
 
 .priority-low { color: #059669; }
-.priority-normal { color: #2563eb; }
-.priority-high { color: #d97706; }
-.priority-urgent { color: #dc2626; }
+.priority-normal { color: #0B7C8C; }
+.priority-high { color: #D97706; }
+.priority-urgent { color: #DC2626; }
 .priority-critical { color: #7c2d12; font-weight: 700; }
 
 .sla-on_track { color: #059669; }
-.sla-warning { color: #d97706; }
-.sla-breached { color: #dc2626; font-weight: 600; }
+.sla-warning { color: #D97706; }
+.sla-breached { color: #DC2626; font-weight: 600; }

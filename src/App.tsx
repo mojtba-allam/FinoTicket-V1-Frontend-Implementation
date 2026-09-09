@@ -6,6 +6,7 @@ import { fa, en, type Lang } from './i18n';
 import { mockUser, mockProducts, mockTickets, mockMessages, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockAPIClients, mockWebhooks, mockAuditLogs, mockAIAnalyses, mockAISuggestions, mockSearchResults, mockAnalytics } from './data/mock';
 import type { Ticket, Message, Role, Presence, TicketStatus, Priority } from './types';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
+import LandingPage from './pages/landing/LandingPage';
 
 // ========== CONTEXT ==========
 interface AppContextType {
@@ -86,10 +87,10 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
           {sidebarOpen && (
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 bg-brand-600 rounded-lg flex items-center justify-center">
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--gradient-hero)' }}>
                 <TicketIcon className="h-5 w-5 text-white" />
               </div>
-              <span className="font-bold text-brand-700">{t.app.name}</span>
+              <span className="font-bold" style={{ color: 'var(--color-brand-700)' }}>{t.app.name}</span>
             </div>
           )}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 rounded-lg hover:bg-surface-hover">
@@ -226,14 +227,14 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-brand-100 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--gradient-mesh)' }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="h-16 w-16 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-brand-200">
+          <div className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg" style={{ background: 'var(--gradient-hero)' }}>
             <TicketIcon className="h-9 w-9 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-brand-800">{fa.app.name}</h1>
-          <p className="text-text-muted mt-1">{fa.app.tagline}</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-brand-800)' }}>{fa.app.name}</h1>
+          <p className="mt-1" style={{ color: 'var(--color-text-muted)' }}>{fa.app.tagline}</p>
         </div>
         <Card className="!p-8">
           <form onSubmit={handleLogin} className="space-y-5">
@@ -248,8 +249,7 @@ function LoginPage() {
             </p>
           </form>
         </Card>
-        <p className="text-center text-xs text-text-muted mt-6">نسخه ۱.۰ — FinoTicket © 2024</p>
-      </div>
+            <p className="text-center text-xs mt-6" style={{ color: 'var(--color-text-muted)' }}>نسخه ۱.۰ — FinoTicket © 2024</p>      </div>
     </div>
   );
 }
@@ -265,12 +265,14 @@ function DeskPage() {
     { id: 'all', label: t.common.all, count: mockTickets.length },
     { id: 'my', label: 'تیکت‌های من', count: mockTickets.filter(t => t.assignee_id === 'u-001').length },
     { id: 'unassigned', label: 'ارجاع نشده', count: mockTickets.filter(t => !t.assignee_id).length },
+    { id: 'watching', label: 'تحت نظر', count: 2 },
     { id: 'sla', label: 'ریسک SLA', count: mockTickets.filter(t => t.sla_status === 'WARNING' || t.sla_status === 'BREACHED').length },
   ];
 
   const filtered = mockTickets.filter(ticket => {
     if (activeTab === 'my' && ticket.assignee_id !== 'u-001') return false;
     if (activeTab === 'unassigned' && ticket.assignee_id) return false;
+    if (activeTab === 'watching' && !ticket.watchers.includes('u-001')) return false;
     if (activeTab === 'sla' && ticket.sla_status !== 'WARNING' && ticket.sla_status !== 'BREACHED') return false;
     if (search && !ticket.subject.includes(search) && !ticket.ticket_number.includes(search)) return false;
     return true;
@@ -397,6 +399,9 @@ function TicketDetailPage() {
   const [reply, setReply] = useState('');
   const [isInternal, setIsInternal] = useState(false);
   const [showAI, setShowAI] = useState(true);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   if (!ticket) return <div className="p-6"><ErrorState title="تیکت یافت نشد" /></div>;
 
@@ -495,9 +500,12 @@ function TicketDetailPage() {
             </div>
           </div>
           <div className="flex gap-2 mt-4">
-            <Button size="sm" variant="secondary" className="flex-1">{t.ticket.assign}</Button>
-            <Button size="sm" variant="secondary" className="flex-1">{t.ticket.change_status}</Button>
+            <Button size="sm" variant="secondary" className="flex-1" onClick={() => setShowAssignModal(true)}>{t.ticket.assign}</Button>
+            <Button size="sm" variant="secondary" className="flex-1" onClick={() => setShowStatusModal(true)}>{t.ticket.change_status}</Button>
           </div>
+          <Button size="sm" variant="ghost" className="w-full mt-2" onClick={() => setShowHistory(true)}>
+            <History className="h-4 w-4" /> {t.ticket.history}
+          </Button>
         </div>
 
         {/* Customer 360 */}
@@ -590,6 +598,70 @@ function TicketDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Assign Modal */}
+      <Modal open={showAssignModal} onClose={() => setShowAssignModal(false)} title={t.ticket.assign}>
+        <div className="space-y-4">
+          <Select label="کارشناس" options={mockAgents.map(a => ({ value: a.user_id, label: a.display_name }))} placeholder="انتخاب کارشناس" />
+          <Select label="تیم" options={mockTeams.map(t => ({ value: t.id, label: t.name }))} placeholder="انتخاب تیم" />
+          <Select label="دپارتمان" options={mockDepartments.map(d => ({ value: d.id, label: d.name }))} placeholder="انتخاب دپارتمان" />
+          <div className="flex gap-3 pt-4">
+            <Button onClick={() => { showToast('تیکت ارجاع شد'); setShowAssignModal(false); }}>ارجاع</Button>
+            <Button variant="secondary" onClick={() => setShowAssignModal(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Status Change Modal */}
+      <Modal open={showStatusModal} onClose={() => setShowStatusModal(false)} title={t.ticket.change_status}>
+        <div className="space-y-4">
+          <Select label="وضعیت جدید" options={Object.entries(t.ticket.statuses).map(([k, v]) => ({ value: k, label: v }))} />
+          <Textarea label="یادداشت (اختیاری)" placeholder="دلیل تغییر وضعیت..." rows={3} />
+          <div className="flex gap-3 pt-4">
+            <Button onClick={() => { showToast('وضعیت تغییر کرد'); setShowStatusModal(false); }}>تغییر وضعیت</Button>
+            <Button variant="secondary" onClick={() => setShowStatusModal(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* History Drawer */}
+      <Drawer open={showHistory} onClose={() => setShowHistory(false)} title={t.ticket.history} side="left">
+        <div className="space-y-4">
+          <div className="relative">
+            <div className="absolute right-3 top-0 bottom-0 w-0.5 bg-border" />
+            <div className="space-y-6">
+              <div className="relative flex gap-4">
+                <div className="h-6 w-6 rounded-full bg-brand-500 flex items-center justify-center z-10">
+                  <CheckCircle2 className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1 pb-6">
+                  <p className="text-sm font-medium">وضعیت تغییر کرد</p>
+                  <p className="text-xs text-text-muted mt-1">باز → در حال بررسی</p>
+                  <p className="text-xs text-text-muted mt-1">علی محمدی • ۲ ساعت پیش</p>
+                </div>
+              </div>
+              <div className="relative flex gap-4">
+                <div className="h-6 w-6 rounded-full bg-accent-500 flex items-center justify-center z-10">
+                  <UserPlus className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1 pb-6">
+                  <p className="text-sm font-medium">ارجاع به علی محمدی</p>
+                  <p className="text-xs text-text-muted mt-1">سیستم • ۳ ساعت پیش</p>
+                </div>
+              </div>
+              <div className="relative flex gap-4">
+                <div className="h-6 w-6 rounded-full bg-success-500 flex items-center justify-center z-10">
+                  <Plus className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">تیکت ایجاد شد</p>
+                  <p className="text-xs text-text-muted mt-1">سارا احمدی • ۵ ساعت پیش</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Drawer>
     </div>
   );
 }
@@ -674,8 +746,9 @@ function CreateTicketPage() {
 
 // ========== CUSTOMERS ==========
 function CustomersPage() {
-  const { t } = useApp();
+  const { t, showToast } = useApp();
   const [search, setSearch] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
   const navigate = useNavigate();
 
   const filtered = mockCustomers.filter(c => !search || c.display_name.includes(search) || c.profile.email?.includes(search));
@@ -684,7 +757,7 @@ function CustomersPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">{t.nav.customers}</h1>
-        <Button><Plus className="h-4 w-4" /> {t.customer.create}</Button>
+        <Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" /> {t.customer.create}</Button>
       </div>
 
       <Card className="mb-4 !p-4">
@@ -723,6 +796,20 @@ function CustomersPage() {
         </table>
         {filtered.length === 0 && <EmptyState title={t.common.empty} />}
       </Card>
+
+      {/* Create Customer Modal */}
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title={t.customer.create}>
+        <div className="space-y-4">
+          <Input label={t.customer.display_name} placeholder="نام و نام خانوادگی" />
+          <Input label="ایمیل" type="email" placeholder="email@example.com" />
+          <Input label="موبایل" placeholder="09123456789" />
+          <Select label="وضعیت" options={[{ value: 'ACTIVE', label: 'فعال' }, { value: 'INACTIVE', label: 'غیرفعال' }, { value: 'BLOCKED', label: 'مسدود' }]} />
+          <div className="flex gap-3 pt-4">
+            <Button onClick={() => { showToast('مشتری ایجاد شد'); setShowCreate(false); }}>ایجاد</Button>
+            <Button variant="secondary" onClick={() => setShowCreate(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -932,7 +1019,8 @@ function KnowledgePage() {
           <h2 className="font-semibold mb-3">مقالات</h2>
           <div className="space-y-3">
             {filtered.map(article => (
-              <Card key={article.id} className="cursor-pointer hover:shadow-md transition-shadow" >
+              <div key={article.id} onClick={() => navigate(`/desk/knowledge/articles/${article.id}`)}>
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-medium">{article.title}</h3>
                   <Badge variant={article.status === 'PUBLISHED' ? 'success' : article.status === 'DRAFT' ? 'warning' : 'default'}>
@@ -945,6 +1033,7 @@ function KnowledgePage() {
                   {article.tags.map(tag => <Badge key={tag}>{tag}</Badge>)}
                 </div>
               </Card>
+              </div>
             ))}
           </div>
         </div>
@@ -953,11 +1042,64 @@ function KnowledgePage() {
   );
 }
 
+// ========== ARTICLE READER ==========
+function ArticleReaderPage() {
+  const { id } = useParams();
+  const { t } = useApp();
+  const navigate = useNavigate();
+  const article = mockArticles.find(a => a.id === id);
+
+  if (!article) return <div className="p-6"><ErrorState title="مقاله یافت نشد" /></div>;
+
+  const kb = mockKnowledgeBases.find(k => k.id === article.kb_id);
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={() => navigate(-1)} className="p-1 rounded hover:bg-surface-hover">
+          <ChevronLeft className="h-5 w-5 flip-rtl" />
+        </button>
+        <div>
+          <p className="text-xs text-text-muted">{kb?.name}</p>
+          <h1 className="text-2xl font-bold">{article.title}</h1>
+        </div>
+      </div>
+
+      <Card>
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+          <Badge variant={article.status === 'PUBLISHED' ? 'success' : article.status === 'DRAFT' ? 'warning' : 'default'}>
+            {article.status === 'PUBLISHED' ? 'منتشر شده' : article.status === 'DRAFT' ? 'پیش‌نویس' : 'آرشیو'}
+          </Badge>
+          <Badge variant="info">{article.visibility === 'BOTH' ? 'عمومی' : article.visibility === 'AGENT' ? 'کارشناس' : 'مشتری'}</Badge>
+          <div className="flex gap-1">
+            {article.tags.map(tag => <Badge key={tag}>{tag}</Badge>)}
+          </div>
+        </div>
+
+        {article.summary && (
+          <div className="mb-6 p-4 bg-brand-50 rounded-lg border border-brand-200">
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-brand-700)' }}>خلاصه</p>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{article.summary}</p>
+          </div>
+        )}
+
+        <div className="prose prose-sm max-w-none" style={{ color: 'var(--color-text)' }}>
+          <div className="whitespace-pre-wrap leading-relaxed">{article.content}</div>
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-border text-xs text-text-muted">
+          <p>آخرین بروزرسانی: {new Date(article.updated_at).toLocaleDateString('fa-IR')}</p>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // ========== ANALYTICS PAGE ==========
 function AnalyticsPage() {
   const { t, product } = useApp();
   const data = mockAnalytics;
-  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6'];
+  const COLORS = ['#0B7C8C', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#F97316'];
 
   return (
     <div className="p-6">
@@ -989,7 +1131,7 @@ function AnalyticsPage() {
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend />
-              <Area type="monotone" dataKey="created" name="ایجاد شده" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} />
+              <Area type="monotone" dataKey="created" name="ایجاد شده" stroke="#0B7C8C" fill="#0B7C8C" fillOpacity={0.1} />
               <Area type="monotone" dataKey="resolved" name="حل شده" stroke="#10b981" fill="#10b981" fillOpacity={0.1} />
             </AreaChart>
           </ResponsiveContainer>
@@ -1017,7 +1159,7 @@ function AnalyticsPage() {
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} />
               <Tooltip formatter={(v: number) => `${v}%`} />
-              <Line type="monotone" dataKey="percentage" name="انطباق %" stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1' }} />
+              <Line type="monotone" dataKey="percentage" name="انطباق %" stroke="#0B7C8C" strokeWidth={2} dot={{ fill: '#0B7C8C' }} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -1031,7 +1173,7 @@ function AnalyticsPage() {
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="agent" tick={{ fontSize: 11 }} width={100} />
               <Tooltip />
-              <Bar dataKey="active" name="تیکت فعال" fill="#6366f1" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="active" name="تیکت فعال" fill="#0B7C8C" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -1754,9 +1896,9 @@ export default function App() {
     <AppProvider>
       <HashRouter>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/widget" element={<WidgetPage />} />
-          <Route path="/" element={<Layout><DeskPage /></Layout>} />
           <Route path="/desk" element={<Layout><DeskPage /></Layout>} />
           <Route path="/desk/tickets" element={<Layout><TicketListPage /></Layout>} />
           <Route path="/desk/tickets/new" element={<Layout><CreateTicketPage /></Layout>} />
@@ -1765,6 +1907,7 @@ export default function App() {
           <Route path="/desk/customers/:id" element={<Layout><CustomerDetailPage /></Layout>} />
           <Route path="/desk/search" element={<Layout><SearchPage /></Layout>} />
           <Route path="/desk/knowledge" element={<Layout><KnowledgePage /></Layout>} />
+          <Route path="/desk/knowledge/articles/:id" element={<Layout><ArticleReaderPage /></Layout>} />
           <Route path="/desk/analytics" element={<Layout><AnalyticsPage /></Layout>} />
           <Route path="/admin/products" element={<Layout><AdminProductsPage /></Layout>} />
           <Route path="/admin/categories" element={<Layout><AdminCategoriesPage /></Layout>} />
