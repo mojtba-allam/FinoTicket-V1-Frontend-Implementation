@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, X, Search, Check, Copy, Loader2, AlertCircle, Inbox, FileText } from 'lucide-react';
 
 // ========== BUTTON ==========
-export function Button({ children, variant = 'primary', size = 'md', className = '', disabled, onClick, type = 'button', ...props }: {
-  children: React.ReactNode; variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
+export function Button({ children, variant = 'primary', size = 'md', className = '', disabled, onClick, type = 'button', style, ...props }: {
+  children: React.ReactNode; variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'ember';
   size?: 'sm' | 'md' | 'lg'; className?: string; disabled?: boolean; onClick?: () => void; type?: 'button' | 'submit';
+  style?: React.CSSProperties;
 }) {
   const base = 'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
   const variants = {
@@ -13,9 +14,10 @@ export function Button({ children, variant = 'primary', size = 'md', className =
     ghost: 'text-text-secondary hover:bg-surface-hover',
     danger: 'bg-danger-500 text-white hover:bg-danger-600',
     success: 'bg-success-500 text-white hover:bg-success-600',
+    ember: 'bg-ember-500 text-white hover:bg-ember-600 shadow-sm',
   };
   const sizes = { sm: 'px-2.5 py-1.5 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-6 py-3 text-base' };
-  return <button type={type} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} disabled={disabled} onClick={onClick} {...props}>{children}</button>;
+  return <button type={type} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} disabled={disabled} onClick={onClick} style={style} {...props}>{children}</button>;
 }
 
 // ========== INPUT ==========
@@ -113,7 +115,7 @@ export function StatusBadge({ status, type = 'ticket' }: { status: string; type?
 export function Avatar({ name, size = 'md', presence }: { name: string; size?: 'sm' | 'md' | 'lg'; presence?: string }) {
   const sizes = { sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-12 w-12 text-base' };
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2);
-  const colors = ['bg-brand-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-500', 'bg-violet-500'];
+  const colors = ['bg-brand-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-500', 'bg-accent-500'];
   const colorIdx = name.charCodeAt(0) % colors.length;
   return (
     <div className="relative inline-flex">
