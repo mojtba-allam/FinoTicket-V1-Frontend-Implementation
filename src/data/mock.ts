@@ -1,0 +1,145 @@
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, Product, SLAPolicy, KnowledgeBase, Article, Webhook, APIClient, AuditLog, AIAnalysis, AISuggestion, SearchResult, AnalyticsData, User } from '../types';
+
+export const mockUser: User = {
+  id: 'u-001', email: 'admin@finoticket.ir', display_name: 'علی محمدی',
+  role: 'ADMIN', presence: 'ONLINE', timezone: 'Asia/Tehran', language: 'fa',
+  status: 'ACTIVE', created_at: '2024-01-01T00:00:00Z', avatar_url: '',
+};
+
+export const mockProducts: Product[] = [
+  { id: 'p-001', name: 'فینوپال', slug: 'finopal', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'EMAIL', 'API'], widget_branding: { primary_color: '#6366f1', welcome_text: 'سلام! چطور می‌تونیم کمکتون کنیم؟', title: 'پشتیبانی فینوپال' }, created_at: '2024-01-01' },
+  { id: 'p-002', name: 'فینوآی‌دی', slug: 'finoid', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'CHAT'], widget_branding: { primary_color: '#0ea5e9', welcome_text: 'پشتیبانی هویت دیجیتال', title: 'پشتیبانی فینوآی‌دی' }, created_at: '2024-02-01' },
+  { id: 'p-003', name: 'فینوبیت', slug: 'finobit', status: 'SUSPENDED', settings: {}, channels: ['WEB', 'EMAIL'], created_at: '2024-03-01' },
+];
+
+export const mockCustomers: Customer[] = [
+  { id: 'c-001', display_name: 'سارا احمدی', status: 'ACTIVE', profile: { first_name: 'سارا', last_name: 'احمدی', email: 'sara@example.com', mobile: '09121234567' }, identities: [{ id: 'id-1', provider: 'FINOID', provider_user_id: 'fino-123', verification_status: 'VERIFIED' }], addresses: [{ id: 'a-1', type: 'HOME', title: 'منزل', address: 'تهران، خیابان ولیعصر', city: 'تهران', country: 'ایران' }], tags: ['vip', 'حقوقی'], created_at: '2024-01-15' },
+  { id: 'c-002', display_name: 'رضا کریمی', status: 'ACTIVE', profile: { first_name: 'رضا', last_name: 'کریمی', email: 'reza@example.com', mobile: '09131234567' }, identities: [], addresses: [], tags: [], created_at: '2024-02-20' },
+  { id: 'c-003', display_name: 'مریم حسینی', status: 'INACTIVE', profile: { first_name: 'مریم', last_name: 'حسینی', email: 'maryam@example.com' }, identities: [{ id: 'id-2', provider: 'FINOPAL', provider_user_id: 'fp-456', verification_status: 'UNVERIFIED' }], addresses: [], tags: ['تست'], created_at: '2024-03-10' },
+];
+
+export const mockTickets: Ticket[] = [
+  { id: 't-001', ticket_number: 'FT-1001', subject: 'مشکل در ورود به حساب کاربری', description: 'کاربر نمی‌تواند وارد حساب شود', status: 'OPEN', priority: 'HIGH', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-001', customer_name: 'سارا احمدی', category_id: 'cat-1', category_name: 'احراز هویت', department_id: 'd-1', department_name: 'فنی', team_id: 'tm-1', team_name: 'پشتیبانی فنی', assignee_id: 'u-001', assignee_name: 'علی محمدی', channel: 'WEB', source: 'widget', tags: ['login', 'urgent'], watchers: [], sla_policy_id: 'sla-1', sla_status: 'WARNING', sla_first_response_due: '2024-12-20T14:00:00Z', created_at: '2024-12-20T10:00:00Z', updated_at: '2024-12-20T12:00:00Z' },
+  { id: 't-002', ticket_number: 'FT-1002', subject: 'درخواست تغییر شماره موبایل', status: 'IN_PROGRESS', priority: 'NORMAL', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-002', customer_name: 'رضا کریمی', category_id: 'cat-2', category_name: 'حساب کاربری', department_id: 'd-1', department_name: 'فنی', assignee_id: 'u-001', assignee_name: 'علی محمدی', channel: 'EMAIL', source: 'email', tags: [], watchers: [], sla_status: 'ON_TRACK', created_at: '2024-12-19T08:00:00Z', updated_at: '2024-12-20T09:00:00Z' },
+  { id: 't-003', ticket_number: 'FT-1003', subject: 'خطای ۵۰۰ در صفحه پرداخت', status: 'OPEN', priority: 'CRITICAL', product_id: 'p-002', product_name: 'فینوآی‌دی', customer_id: 'c-003', customer_name: 'مریم حسینی', category_id: 'cat-3', category_name: 'پرداخت', department_id: 'd-2', department_name: 'مالی', channel: 'WIDGET', source: 'widget', tags: ['bug', 'payment'], watchers: [], sla_status: 'BREACHED', sla_first_response_due: '2024-12-19T10:00:00Z', created_at: '2024-12-19T09:00:00Z', updated_at: '2024-12-19T09:00:00Z' },
+  { id: 't-004', ticket_number: 'FT-1004', subject: 'سوال درباره کارمزد انتقال', status: 'WAITING_CUSTOMER', priority: 'LOW', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-001', customer_name: 'سارا احمدی', category_id: 'cat-4', category_name: 'عمومی', channel: 'CHAT', source: 'chat', tags: [], watchers: [], sla_status: 'ON_TRACK', created_at: '2024-12-18T14:00:00Z', updated_at: '2024-12-19T16:00:00Z' },
+  { id: 't-005', ticket_number: 'FT-1005', subject: 'درخواست حذف حساب', status: 'RESOLVED', priority: 'NORMAL', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-002', customer_name: 'رضا کریمی', category_id: 'cat-2', category_name: 'حساب کاربری', assignee_id: 'u-002', assignee_name: 'فاطمه رضایی', channel: 'WEB', source: 'web', tags: [], watchers: [], sla_status: 'ON_TRACK', resolved_at: '2024-12-17T12:00:00Z', created_at: '2024-12-15T10:00:00Z', updated_at: '2024-12-17T12:00:00Z' },
+  { id: 't-006', ticket_number: 'FT-1006', subject: 'عدم دریافت کد تایید پیامکی', status: 'OPEN', priority: 'HIGH', product_id: 'p-002', product_name: 'فینوآی‌دی', customer_id: 'c-003', customer_name: 'مریم حسینی', category_id: 'cat-1', category_name: 'احراز هویت', channel: 'SMS', source: 'sms', tags: ['sms', 'otp'], watchers: [], sla_status: 'WARNING', created_at: '2024-12-20T11:00:00Z', updated_at: '2024-12-20T11:00:00Z' },
+];
+
+export const mockMessages: Message[] = [
+  { id: 'm-001', ticket_id: 't-001', sender_type: 'CUSTOMER', sender_id: 'c-001', sender_name: 'سارا احمدی', body: 'سلام، من نمی‌تونم وارد حساب کاربریم بشم. خطای "اطلاعات ورود نامعتبر" نمایش داده میشه. لطفاً بررسی کنید.', is_internal: false, channel: 'WEB', attachments: [], created_at: '2024-12-20T10:00:00Z' },
+  { id: 'm-002', ticket_id: 't-001', sender_type: 'AGENT', sender_id: 'u-001', sender_name: 'علی محمدی', body: 'سلام سارا خانم. لطفاً مرورگر خود را به‌روزرسانی کنید و مجدداً تلاش کنید.', is_internal: false, channel: 'WEB', attachments: [], created_at: '2024-12-20T10:30:00Z' },
+  { id: 'm-003', ticket_id: 't-001', sender_type: 'AGENT', sender_id: 'u-001', sender_name: 'علی محمدی', body: 'بررسی شد - احتمالاً مشکل از سمت سرور احراز هویت است. باید به تیم فنی ارجاع بدیم.', is_internal: true, channel: 'WEB', attachments: [], created_at: '2024-12-20T10:35:00Z' },
+  { id: 'm-004', ticket_id: 't-001', sender_type: 'CUSTOMER', sender_id: 'c-001', sender_name: 'سارا احمدی', body: 'ممنون. مرورگر رو آپدیت کردم ولی هنوز مشکل دارم. اسکرین‌شات ضمیمه کردم.', is_internal: false, channel: 'WEB', attachments: [{ id: 'att-1', filename: 'screenshot.png', mime_type: 'image/png', size: 245000, url: '#' }], created_at: '2024-12-20T11:00:00Z' },
+];
+
+export const mockCategories: Category[] = [
+  { id: 'cat-1', name: 'احراز هویت', slug: 'auth', status: 'ACTIVE', sort_order: 1, children: [{ id: 'cat-1-1', name: 'ورود', slug: 'login', status: 'ACTIVE', sort_order: 1, parent_id: 'cat-1' }, { id: 'cat-1-2', name: 'ثبت‌نام', slug: 'register', status: 'ACTIVE', sort_order: 2, parent_id: 'cat-1' }] },
+  { id: 'cat-2', name: 'حساب کاربری', slug: 'account', status: 'ACTIVE', sort_order: 2, children: [] },
+  { id: 'cat-3', name: 'پرداخت', slug: 'payment', status: 'ACTIVE', sort_order: 3, children: [] },
+  { id: 'cat-4', name: 'عمومی', slug: 'general', status: 'ACTIVE', sort_order: 4, children: [] },
+];
+
+export const mockDepartments: Department[] = [
+  { id: 'd-1', name: 'فنی', slug: 'tech', status: 'ACTIVE' },
+  { id: 'd-2', name: 'مالی', slug: 'finance', status: 'ACTIVE' },
+  { id: 'd-3', name: 'پشتیبانی', slug: 'support', status: 'ACTIVE' },
+  { id: 'd-4', name: 'مدیریت', slug: 'management', status: 'ACTIVE' },
+];
+
+export const mockTeams: Team[] = [
+  { id: 'tm-1', name: 'پشتیبانی فنی', slug: 'tech-support', department_id: 'd-1', department_name: 'فنی', status: 'ACTIVE', members: [{ user_id: 'u-001', user_name: 'علی محمدی', role: 'LEAD' }, { user_id: 'u-002', user_name: 'فاطمه رضایی', role: 'MEMBER' }] },
+  { id: 'tm-2', name: 'پشتیبانی مالی', slug: 'finance-support', department_id: 'd-2', department_name: 'مالی', status: 'ACTIVE', members: [{ user_id: 'u-003', user_name: 'حسن نوری', role: 'LEAD' }] },
+];
+
+export const mockAgents: Agent[] = [
+  { id: 'ag-1', user_id: 'u-001', display_name: 'علی محمدی', timezone: 'Asia/Tehran', language: 'fa', max_active_tickets: 20, presence: 'ONLINE', status: 'ACTIVE' },
+  { id: 'ag-2', user_id: 'u-002', display_name: 'فاطمه رضایی', timezone: 'Asia/Tehran', language: 'fa', max_active_tickets: 15, presence: 'AWAY', status: 'ACTIVE' },
+  { id: 'ag-3', user_id: 'u-003', display_name: 'حسن نوری', timezone: 'Asia/Tehran', language: 'fa', max_active_tickets: 10, presence: 'BUSY', status: 'ACTIVE' },
+];
+
+export const mockSLAPolicies: SLAPolicy[] = [
+  { id: 'sla-1', name: 'استاندارد', priority: 'NORMAL', first_response_seconds: 3600, resolution_seconds: 86400, status: 'ACTIVE' },
+  { id: 'sla-2', name: 'فوری', priority: 'HIGH', first_response_seconds: 900, resolution_seconds: 14400, status: 'ACTIVE' },
+  { id: 'sla-3', name: 'بحرانی', priority: 'CRITICAL', first_response_seconds: 300, resolution_seconds: 3600, status: 'ACTIVE' },
+];
+
+export const mockKnowledgeBases: KnowledgeBase[] = [
+  { id: 'kb-1', name: 'راهنمای فینوپال', scope: 'PRODUCT', product_id: 'p-001', status: 'ACTIVE', articles_count: 12 },
+  { id: 'kb-2', name: 'پایگاه دانش عمومی', scope: 'TENANT', status: 'ACTIVE', articles_count: 8 },
+];
+
+export const mockArticles: Article[] = [
+  { id: 'art-1', kb_id: 'kb-1', title: 'نحوه بازیابی رمز عبور', slug: 'password-recovery', content: '# بازیابی رمز عبور\n\nبرای بازیابی رمز عبور:\n1. روی "فراموشی رمز" کلیک کنید\n2. ایمیل خود را وارد کنید\n3. لینک بازیابی را از ایمیل باز کنید\n4. رمز جدید تعیین کنید', summary: 'راهنمای گام‌به‌گام بازیابی رمز عبور', status: 'PUBLISHED', visibility: 'BOTH', tags: ['auth', 'password'], created_at: '2024-06-01', updated_at: '2024-10-15' },
+  { id: 'art-2', kb_id: 'kb-1', title: 'راهنمای انتقال وجه', slug: 'transfer-guide', content: '# انتقال وجه\n\nبرای انتقال وجه بین حساب‌ها...', summary: 'آموزش انتقال وجه', status: 'PUBLISHED', visibility: 'BOTH', tags: ['payment', 'transfer'], created_at: '2024-07-01', updated_at: '2024-11-01' },
+  { id: 'art-3', kb_id: 'kb-2', title: 'سیاست حریم خصوصی', slug: 'privacy-policy', content: '# سیاست حریم خصوصی\n\nاطلاعات شما نزد ما محفوظ است...', summary: 'خط‌مشی حریم خصوصی FinoTicket', status: 'DRAFT', visibility: 'AGENT', tags: ['legal'], created_at: '2024-08-01', updated_at: '2024-08-01' },
+];
+
+export const mockAPIClients: APIClient[] = [
+  { id: 'ac-1', name: 'اپلیکیشن موبایل', client_id: 'cli_abc123', scopes: ['tickets:read', 'tickets:write', 'customers:read'], status: 'ACTIVE', last_used_at: '2024-12-20T10:00:00Z', created_at: '2024-06-01' },
+  { id: 'ac-2', name: 'سرویس گزارش‌گیری', client_id: 'cli_def456', scopes: ['analytics:read', 'tickets:read'], status: 'ACTIVE', last_used_at: '2024-12-19T15:00:00Z', created_at: '2024-08-15' },
+];
+
+export const mockWebhooks: Webhook[] = [
+  { id: 'wh-1', name: 'نوتیفیکیشن اسلک', url: 'https://hooks.slack.com/xxx', events: ['ticket.created', 'ticket.assigned'], status: 'ACTIVE', deliveries: [{ id: 'wd-1', webhook_id: 'wh-1', event: 'ticket.created', status: 'DELIVERED', attempts: 1, response_code: 200, created_at: '2024-12-20T10:01:00Z' }], created_at: '2024-09-01' },
+  { id: 'wh-2', name: 'CRM Sync', url: 'https://crm.example.com/webhook', events: ['ticket.status_changed', 'customer.created'], status: 'ACTIVE', deliveries: [{ id: 'wd-2', webhook_id: 'wh-2', event: 'ticket.status_changed', status: 'FAILED', attempts: 3, response_code: 500, response_body: '{"error":"timeout"}', next_retry_at: '2024-12-20T11:00:00Z', created_at: '2024-12-20T09:00:00Z' }], created_at: '2024-10-01' },
+];
+
+export const mockAuditLogs: AuditLog[] = [
+  { id: 'al-1', actor_id: 'u-001', actor_name: 'علی محمدی', action: 'STATUS_CHANGE', entity_type: 'ticket', entity_id: 't-001', metadata: { from: 'OPEN', to: 'IN_PROGRESS' }, ip_address: '192.168.1.1', created_at: '2024-12-20T10:30:00Z' },
+  { id: 'al-2', actor_id: 'u-001', actor_name: 'علی محمدی', action: 'ASSIGN', entity_type: 'ticket', entity_id: 't-002', metadata: { assignee: 'علی محمدی' }, ip_address: '192.168.1.1', created_at: '2024-12-20T09:00:00Z' },
+  { id: 'al-3', actor_id: 'u-002', actor_name: 'فاطمه رضایی', action: 'CREATE', entity_type: 'customer', entity_id: 'c-003', metadata: {}, ip_address: '192.168.1.2', created_at: '2024-12-19T14:00:00Z' },
+];
+
+export const mockAIAnalyses: AIAnalysis[] = [
+  { id: 'ai-1', ticket_id: 't-001', type: 'SENTIMENT', result: 'منفی - کاربر ناراحت است', confidence: 0.85, created_at: '2024-12-20T10:05:00Z' },
+  { id: 'ai-2', ticket_id: 't-001', type: 'INTENT', result: 'درخواست کمک فنی - مشکل ورود', confidence: 0.92, created_at: '2024-12-20T10:05:00Z' },
+  { id: 'ai-3', ticket_id: 't-001', type: 'LANGUAGE', result: 'fa', confidence: 0.99, created_at: '2024-12-20T10:05:00Z' },
+];
+
+export const mockAISuggestions: AISuggestion[] = [
+  { id: 'ais-1', ticket_id: 't-001', type: 'REPLY', content: 'سلام سارا خانم، مشکل شما شناسایی شد. لطفاً کش مرورگر خود را پاک کنید و مجدداً تلاش نمایید. در صورت ادامه مشکل، اطلاعات بیشتری ارائه دهید.', confidence: 0.78, status: 'PENDING', sources: [{ title: 'نحوه بازیابی رمز عبور', url: '#' }], created_at: '2024-12-20T10:10:00Z' },
+  { id: 'ais-2', ticket_id: 't-001', type: 'CATEGORY', content: 'احراز هویت > ورود', confidence: 0.91, status: 'PENDING', created_at: '2024-12-20T10:10:00Z' },
+  { id: 'ais-3', ticket_id: 't-001', type: 'PRIORITY', content: 'HIGH', confidence: 0.88, status: 'ACCEPTED', created_at: '2024-12-20T10:10:00Z' },
+];
+
+export const mockSearchResults: SearchResult[] = [
+  { id: 't-001', type: 'ticket', title: 'FT-1001 - مشکل در ورود به حساب کاربری', snippet: 'کاربر نمی‌تواند وارد حساب شود... خطای اطلاعات ورود نامعتبر', score: 0.95, url: '/desk/tickets/t-001' },
+  { id: 't-006', type: 'ticket', title: 'FT-1006 - عدم دریافت کد تایید پیامکی', snippet: 'مشکل در دریافت OTP از طریق پیامک...', score: 0.82, url: '/desk/tickets/t-006' },
+  { id: 'art-1', type: 'article', title: 'نحوه بازیابی رمز عبور', snippet: 'برای بازیابی رمز عبور روی فراموشی رمز کلیک کنید...', score: 0.75, url: '/desk/knowledge/articles/art-1' },
+];
+
+export const mockAnalytics: AnalyticsData = {
+  kpis: { open_tickets: 24, unassigned: 5, breached_sla: 3, waiting_customer: 8, my_active: 7, avg_first_response: 1840, avg_resolution: 28800, satisfaction: 4.2 },
+  tickets_over_time: [
+    { date: '2024-12-14', created: 12, resolved: 10 }, { date: '2024-12-15', created: 15, resolved: 13 },
+    { date: '2024-12-16', created: 8, resolved: 11 }, { date: '2024-12-17', created: 18, resolved: 14 },
+    { date: '2024-12-18', created: 14, resolved: 16 }, { date: '2024-12-19', created: 20, resolved: 12 },
+    { date: '2024-12-20', created: 16, resolved: 9 },
+  ],
+  by_status: [
+    { status: 'باز', count: 12 }, { status: 'در حال بررسی', count: 8 }, { status: 'در انتظار مشتری', count: 5 },
+    { status: 'حل شده', count: 18 }, { status: 'بسته', count: 45 },
+  ],
+  by_priority: [
+    { priority: 'کم', count: 15 }, { priority: 'معمولی', count: 35 }, { priority: 'بالا', count: 12 },
+    { priority: 'فوری', count: 5 }, { priority: 'بحرانی', count: 2 },
+  ],
+  sla_compliance: [
+    { date: '2024-12-14', percentage: 92 }, { date: '2024-12-15', percentage: 88 },
+    { date: '2024-12-16', percentage: 95 }, { date: '2024-12-17', percentage: 85 },
+    { date: '2024-12-18', percentage: 90 }, { date: '2024-12-19', percentage: 78 },
+    { date: '2024-12-20', percentage: 82 },
+  ],
+  by_department: [
+    { department: 'فنی', count: 30 }, { department: 'مالی', count: 15 }, { department: 'پشتیبانی', count: 25 }, { department: 'مدیریت', count: 5 },
+  ],
+  agent_workload: [
+    { agent: 'علی محمدی', active: 7 }, { agent: 'فاطمه رضایی', active: 5 }, { agent: 'حسن نوری', active: 3 },
+  ],
+  by_channel: [
+    { channel: 'وب', count: 35 }, { channel: 'ویجت', count: 25 }, { channel: 'ایمیل', count: 15 },
+    { channel: 'چت', count: 12 }, { channel: 'پیامک', count: 8 },
+  ],
+};
