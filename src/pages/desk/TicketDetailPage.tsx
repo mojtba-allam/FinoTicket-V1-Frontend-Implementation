@@ -5,7 +5,7 @@ import { Button, Input, Textarea, Select, Badge, StatusBadge, Avatar, Modal, Dra
 import { SLACountdown } from '../../components/SLACountdown';
 import { TagInput } from '../../components/TagInput';
 import { Timeline, type TimelineEvent } from '../../components/Timeline';
-import { mockStore } from '../../lib/api/mockStore';
+import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
 import { mockAgents, mockTeams, mockDepartments, mockAIAnalyses, mockAISuggestions, mockTickets } from '../../data/mock';
 
@@ -14,9 +14,13 @@ export default function TicketDetailPage() {
   const { t, lang, showToast } = useApp();
   const navigate = useNavigate();
   
+  // Subscribe to store changes for reactivity
+  useMockStore();
+  
   // Get ticket from mockStore (live data)
   const ticket = mockStore.getTicket(id || '');
   const messages = mockStore.getMessages(id || '');
+  const historyEvents = mockStore.getTicketHistory(id || '');
   
   const [reply, setReply] = useState('');
   const [isInternal, setIsInternal] = useState(false);
@@ -27,54 +31,10 @@ export default function TicketDetailPage() {
   const [tags, setTags] = useState<string[]>(ticket?.tags || []);
   const [watchers, setWatchers] = useState<string[]>(ticket?.watchers || []);
 
-  // Build history events from ticket lifecycle
-  const historyEvents = useMemo<TimelineEvent[]>(() => {
-    if (!ticket) return [];
-    
-    const events: TimelineEvent[] = [
-      {
-        id: 'created',
-        type: 'created',
-        title: lang === 'fa' ? 'تیکت ایجاد شد' : 'Ticket created',
-        actor: ticket.customer_name || 'Customer',
-        timestamp: ticket.created_at,
-      }
-    ];
-
-    if (ticket.assignee_id) {
-      events.push({
-        id: 'assigned',
-        type: 'assigned',
-        title: lang === 'fa' ? `ارجاع به ${ticket.assignee_name}` : `Assigned to ${ticket.assignee_name}`,
-        actor: 'System',
-        timestamp: ticket.updated_at,
-      });
-    }
-
-    if (ticket.status !== 'OPEN') {
-      events.push({
-        id: 'status',
-        type: 'status_change',
-        title: lang === 'fa' ? `وضعیت تغییر کرد به ${t.ticket.statuses[ticket.status]}` : `Status changed to ${ticket.status}`,
-        actor: ticket.assignee_name || 'System',
-        timestamp: ticket.updated_at,
-      });
-    }
-
-    // Add message events
-    messages.forEach(msg => {
-      events.push({
-        id: msg.id,
-        type: 'message',
-        title: lang === 'fa' ? `${msg.sender_name} پیام ارسال کرد` : `${msg.sender_name} sent a message`,
-        description: msg.body.substring(0, 100) + (msg.body.length > 100 ? '...' : ''),
-        actor: msg.sender_name,
-        timestamp: msg.created_at,
-      });
-    });
-
-    return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [ticket, messages, lang, t]);
+  // Sort history events by timestamp (newest first)
+  const sortedHistoryEvents = useMemo(() => {
+    return [...historyEvents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [historyEvents]);
 
   if (!ticket) {
     return (
@@ -440,7 +400,7 @@ export default function TicketDetailPage() {
 
       {/* History Drawer */}
       <Drawer open={showHistory} onClose={() => setShowHistory(false)} title={lang === 'fa' ? 'تاریخچه' : 'History'} side="left">
-        <Timeline events={historyEvents} />
+        <Timeline events={sortedHistoryEvents} />
       </Drawer>
     </div>
   );

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Inbox } from 'lucide-react';
 import { Button, SearchInput, Tabs, StatusBadge, EmptyState, Card } from '../../components/ui';
 import { FilterBar, useTicketFilters, type TicketFilters } from '../../components/FilterBar';
-import { mockStore } from '../../lib/api/mockStore';
+import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
 
 export default function DeskPage() {
@@ -13,6 +13,9 @@ export default function DeskPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Subscribe to store changes for reactivity
+  useMockStore();
 
   // Get tickets from mockStore (live data)
   const allTickets = mockStore.getTickets();
