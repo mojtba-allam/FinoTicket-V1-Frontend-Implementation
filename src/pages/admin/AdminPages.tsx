@@ -1,8 +1,9 @@
-import React from 'react';
-import { Building2, UserCheck, Users, Shield, Clock, Workflow, Zap, BookOpen, Globe, Webhook, FileSearch } from 'lucide-react';
-import { Card, Badge } from '../../components/ui';
-import { mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
+import React, { useState } from 'react';
+import { Building2, UserCheck, Users, Shield, Clock, Workflow, Zap, BookOpen, Globe, Webhook, FileSearch, Plus } from 'lucide-react';
+import { Card, Badge, Button, Modal, Input, Select } from '../../components/ui';
+import { mockDepartments, mockTeams, mockAgents, mockKnowledgeBases, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
 import { useApp } from '../../app/providers';
+import { mockStore, useMockStore } from '../../lib/api/mockStore';
 
 export function AdminDepartmentsPage() {
   const { t, lang } = useApp();
@@ -143,14 +144,80 @@ export function AdminUsersPage() {
 }
 
 export function AdminSLAPage() {
-  const { t, lang } = useApp();
+  const { t, lang, showToast } = useApp();
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingSLA, setEditingSLA] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [priority, setPriority] = useState('NORMAL');
+  const [firstResponseMinutes, setFirstResponseMinutes] = useState(60);
+  const [resolutionHours, setResolutionHours] = useState(24);
+  const [status, setStatus] = useState('ACTIVE');
+
+  useMockStore();
+  const slaPolicies = mockStore.getSLAPolicies();
+
+  const handleCreate = () => {
+    if (!name.trim()) {
+      showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
+      return;
+    }
+
+    if (editingSLA) {
+      mockStore.updateSLAPolicy(editingSLA.id, {
+        name,
+        priority: priority as any,
+        first_response_seconds: firstResponseMinutes * 60,
+        resolution_seconds: resolutionHours * 3600,
+        status: status as any,
+      });
+      showToast(lang === 'fa' ? 'SLA بروزرسانی شد' : 'SLA updated', 'success');
+    } else {
+      mockStore.createSLAPolicy({
+        name,
+        priority: priority as any,
+        first_response_seconds: firstResponseMinutes * 60,
+        resolution_seconds: resolutionHours * 3600,
+        status: status as any,
+      });
+      showToast(lang === 'fa' ? 'SLA ایجاد شد' : 'SLA created', 'success');
+    }
+
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setShowCreate(false);
+    setEditingSLA(null);
+    setName('');
+    setPriority('NORMAL');
+    setFirstResponseMinutes(60);
+    setResolutionHours(24);
+    setStatus('ACTIVE');
+  };
+
+  const handleEdit = (sla: any) => {
+    setEditingSLA(sla);
+    setName(sla.name);
+    setPriority(sla.priority);
+    setFirstResponseMinutes(Math.floor(sla.first_response_seconds / 60));
+    setResolutionHours(Math.floor(sla.resolution_seconds / 3600));
+    setStatus(sla.status);
+    setShowCreate(true);
+  };
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.sla}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.sla}</h1>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'SLA جدید' : 'New SLA'}
+        </Button>
+      </div>
       <div className="space-y-4">
-        {mockSLAPolicies.map(sla => (
-          <Card key={sla.id}>
-            <div className="flex items-center justify-between mb-3">
+        {slaPolicies.map(sla => (
+          <div key={sla.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleEdit(sla)}>
+            <Card>
+              <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="font-semibold">{sla.name}</h3>
                 <Badge variant={sla.priority === 'LOW' ? 'success' : sla.priority === 'NORMAL' ? 'info' : sla.priority === 'HIGH' ? 'warning' : 'danger'}>
@@ -171,36 +238,105 @@ export function AdminSLAPage() {
                 <p className="font-medium">{Math.floor(sla.resolution_seconds / 3600)} {lang === 'fa' ? 'ساعت' : 'hours'}</p>
               </div>
             </div>
-          </Card>
+            </Card>
+          </div>
         ))}
       </div>
+
+      <Modal open={showCreate} onClose={resetForm} title={editingSLA ? (lang === 'fa' ? 'ویرایش SLA' : 'Edit SLA') : (lang === 'fa' ? 'SLA جدید' : 'New SLA')}>
+        <div className="space-y-4">
+          <Input 
+            label={lang === 'fa' ? 'نام' : 'Name'} 
+            value={name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+            placeholder={lang === 'fa' ? 'نام SLA' : 'SLA name'} 
+          />
+          <Select 
+            label={lang === 'fa' ? 'اولویت' : 'Priority'} 
+            options={[
+              { value: 'LOW', label: lang === 'fa' ? 'کم' : 'Low' },
+              { value: 'NORMAL', label: lang === 'fa' ? 'معمولی' : 'Normal' },
+              { value: 'HIGH', label: lang === 'fa' ? 'بالا' : 'High' },
+              { value: 'URGENT', label: lang === 'fa' ? 'فوری' : 'Urgent' },
+              { value: 'CRITICAL', label: lang === 'fa' ? 'بحرانی' : 'Critical' },
+            ]}
+            value={priority}
+            onChange={setPriority}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                {lang === 'fa' ? 'اولین پاسخ (دقیقه)' : 'First response (minutes)'}
+              </label>
+              <input
+                type="number"
+                value={firstResponseMinutes}
+                onChange={(e) => setFirstResponseMinutes(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                min="1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                {lang === 'fa' ? 'حل نهایی (ساعت)' : 'Resolution (hours)'}
+              </label>
+              <input
+                type="number"
+                value={resolutionHours}
+                onChange={(e) => setResolutionHours(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                min="1"
+              />
+            </div>
+          </div>
+          <Select 
+            label={lang === 'fa' ? 'وضعیت' : 'Status'} 
+            options={[
+              { value: 'ACTIVE', label: lang === 'fa' ? 'فعال' : 'Active' },
+              { value: 'INACTIVE', label: lang === 'fa' ? 'غیرفعال' : 'Inactive' },
+            ]}
+            value={status}
+            onChange={setStatus}
+          />
+          <div className="flex gap-3 pt-4">
+            <Button onClick={handleCreate}>
+              {editingSLA ? (lang === 'fa' ? 'بروزرسانی' : 'Update') : (lang === 'fa' ? 'ایجاد' : 'Create')}
+            </Button>
+            <Button variant="secondary" onClick={resetForm}>
+              {lang === 'fa' ? 'انصراف' : 'Cancel'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
 
 export function AdminWorkflowsPage() {
   const { t, lang } = useApp();
-  const workflows = [
-    { id: 'wf-1', name: lang === 'fa' ? 'ارجاع خودکار به فنی' : 'Auto-assign to Tech', event: 'ticket.created', status: 'ACTIVE' as const, version: 2, steps: 2 },
-    { id: 'wf-2', name: lang === 'fa' ? 'اعلان SLA بحرانی' : 'Critical SLA Alert', event: 'sla.warning', status: 'ACTIVE' as const, version: 1, steps: 1 },
-  ];
+  const navigate = useNavigate();
+  useMockStore();
+  const workflows = mockStore.getWorkflows();
+  
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">{t.admin.workflows}</h1>
       <div className="space-y-4">
         {workflows.map(wf => (
-          <Card key={wf.id}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-semibold">{wf.name}</h3>
-                <p className="text-xs text-text-muted">{lang === 'fa' ? 'رویداد' : 'Event'}: {wf.event} • {lang === 'fa' ? 'نسخه' : 'Version'}: {wf.version}</p>
+          <div key={wf.id} onClick={() => navigate(`/admin/workflows/${wf.id}`)} className="cursor-pointer">
+            <Card>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-semibold">{wf.name}</h3>
+                  <p className="text-xs text-text-muted">{lang === 'fa' ? 'رویداد' : 'Event'}: {wf.event} • {lang === 'fa' ? 'نسخه' : 'Version'}: {wf.version}</p>
+                </div>
+                <Badge variant={wf.status === 'ACTIVE' ? 'success' : wf.status === 'DRAFT' ? 'warning' : 'default'}>
+                  {wf.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : wf.status === 'DRAFT' ? (lang === 'fa' ? 'پیش‌نویس' : 'Draft') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                </Badge>
               </div>
-              <Badge variant={wf.status === 'ACTIVE' ? 'success' : wf.status === 'DRAFT' ? 'warning' : 'default'}>
-                {wf.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : wf.status === 'DRAFT' ? (lang === 'fa' ? 'پیش‌نویس' : 'Draft') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-              </Badge>
-            </div>
-            <p className="text-sm text-text-muted">{wf.steps} {lang === 'fa' ? 'مرحله' : 'steps'}</p>
-          </Card>
+              <p className="text-sm text-text-muted">{wf.steps.length} {lang === 'fa' ? 'مرحله' : 'steps'}</p>
+            </Card>
+          </div>
         ))}
       </div>
     </div>
