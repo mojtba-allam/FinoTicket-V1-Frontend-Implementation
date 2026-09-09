@@ -19,7 +19,13 @@ export default function AdminProductsPage() {
       showToast(lang === 'fa' ? 'لطفاً تمام فیلدها را پر کنید' : 'Please fill all fields', 'error');
       return;
     }
-    // Note: mockStore doesn't have createProduct yet, but we can add it
+    
+    mockStore.createProduct({
+      name,
+      slug,
+      status: status as any,
+    });
+    
     showToast(lang === 'fa' ? 'محصول ایجاد شد' : 'Product created', 'success');
     setShowCreate(false);
     setName('');

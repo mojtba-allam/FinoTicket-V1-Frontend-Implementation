@@ -278,6 +278,14 @@ class MockStore {
     return newCategory;
   }
 
+  updateCategory(id: string, updates: Partial<Category>) {
+    const index = this.categories.findIndex(c => c.id === id);
+    if (index === -1) return null;
+    this.categories[index] = { ...this.categories[index], ...updates };
+    this.notify();
+    return this.categories[index];
+  }
+
   // Departments
   getDepartments() {
     return this.departments;
@@ -294,6 +302,14 @@ class MockStore {
     this.departments.push(newDepartment);
     this.notify();
     return newDepartment;
+  }
+
+  updateDepartment(id: string, updates: Partial<Department>) {
+    const index = this.departments.findIndex(d => d.id === id);
+    if (index === -1) return null;
+    this.departments[index] = { ...this.departments[index], ...updates };
+    this.notify();
+    return this.departments[index];
   }
 
   // Teams
@@ -316,6 +332,14 @@ class MockStore {
     return newTeam;
   }
 
+  updateTeam(id: string, updates: Partial<Team>) {
+    const index = this.teams.findIndex(t => t.id === id);
+    if (index === -1) return null;
+    this.teams[index] = { ...this.teams[index], ...updates };
+    this.notify();
+    return this.teams[index];
+  }
+
   // SLA Policies
   getSLAPolicies() {
     return this.slaPolicies;
@@ -336,6 +360,14 @@ class MockStore {
     return newPolicy;
   }
 
+  updateSLAPolicy(id: string, updates: Partial<SLAPolicy>) {
+    const index = this.slaPolicies.findIndex(p => p.id === id);
+    if (index === -1) return null;
+    this.slaPolicies[index] = { ...this.slaPolicies[index], ...updates };
+    this.notify();
+    return this.slaPolicies[index];
+  }
+
   // Products
   getProducts() {
     return this.products;
@@ -351,6 +383,22 @@ class MockStore {
     this.products[index] = { ...this.products[index], ...updates };
     this.notify();
     return this.products[index];
+  }
+
+  createProduct(product: Partial<Product>) {
+    const newProduct: Product = {
+      id: `p-${Date.now()}`,
+      name: product.name || '',
+      slug: product.slug || '',
+      status: product.status || 'ACTIVE',
+      settings: product.settings || {},
+      channels: product.channels || ['WEB'],
+      widget_branding: product.widget_branding,
+      created_at: new Date().toISOString(),
+    };
+    this.products.push(newProduct);
+    this.notify();
+    return newProduct;
   }
 }
 
@@ -402,30 +450,35 @@ export const api = {
   categories: {
     list: () => mockStore.getCategories(),
     create: (data: Partial<Category>) => mockStore.createCategory(data),
+    update: (id: string, data: Partial<Category>) => mockStore.updateCategory(id, data),
   },
 
   // Departments
   departments: {
     list: () => mockStore.getDepartments(),
     create: (data: Partial<Department>) => mockStore.createDepartment(data),
+    update: (id: string, data: Partial<Department>) => mockStore.updateDepartment(id, data),
   },
 
   // Teams
   teams: {
     list: () => mockStore.getTeams(),
     create: (data: Partial<Team>) => mockStore.createTeam(data),
+    update: (id: string, data: Partial<Team>) => mockStore.updateTeam(id, data),
   },
 
   // SLA Policies
   sla: {
     list: () => mockStore.getSLAPolicies(),
     create: (data: Partial<SLAPolicy>) => mockStore.createSLAPolicy(data),
+    update: (id: string, data: Partial<SLAPolicy>) => mockStore.updateSLAPolicy(id, data),
   },
 
   // Products
   products: {
     list: () => mockStore.getProducts(),
     get: (id: string) => mockStore.getProduct(id),
+    create: (data: Partial<Product>) => mockStore.createProduct(data),
     update: (id: string, data: Partial<Product>) => mockStore.updateProduct(id, data),
   },
 };

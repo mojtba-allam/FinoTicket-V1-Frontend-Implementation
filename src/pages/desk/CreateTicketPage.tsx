@@ -4,11 +4,19 @@ import { Button, Input, Textarea, Select, Card } from '../../components/ui';
 import { mockStore } from '../../lib/api/mockStore';
 import { mockCustomers, mockCategories, mockDepartments, mockAgents } from '../../data/mock';
 import { useApp } from '../../app/providers';
+import { useCanMutate } from '../../components/ProtectedRoute';
 
 export default function CreateTicketPage() {
   const { t, lang, showToast, product } = useApp();
   const navigate = useNavigate();
-  
+  const canMutate = useCanMutate();
+
+  // VIEWER gate - redirect to forbidden
+  if (!canMutate) {
+    navigate('/forbidden');
+    return null;
+  }
+
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [customer, setCustomer] = useState('');
@@ -16,7 +24,6 @@ export default function CreateTicketPage() {
   const [category, setCategory] = useState('');
   const [department, setDepartment] = useState('');
   const [assignee, setAssignee] = useState('');
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     

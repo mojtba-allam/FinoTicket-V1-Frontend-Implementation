@@ -5,9 +5,11 @@ import { Button, SearchInput, Tabs, StatusBadge, EmptyState, Card } from '../../
 import { FilterBar, useTicketFilters, type TicketFilters } from '../../components/FilterBar';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
+import { useCanMutate } from '../../components/ProtectedRoute';
 
 export default function DeskPage() {
   const { t, lang } = useApp();
+  const canMutate = useCanMutate();
   const navigate = useNavigate();
   const [filters, setFilters] = useTicketFilters();
   const [activeTab, setActiveTab] = useState('all');
@@ -67,9 +69,11 @@ export default function DeskPage() {
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">{t.nav.inbox}</h2>
-            <Button size="sm" onClick={() => navigate('/desk/tickets/new')}>
-              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'جدید' : 'New'}
-            </Button>
+            {canMutate && (
+              <Button size="sm" onClick={() => navigate('/desk/tickets/new')}>
+                <Plus className="h-4 w-4" /> {lang === 'fa' ? 'جدید' : 'New'}
+              </Button>
+            )}
           </div>
           <SearchInput value={search} onChange={setSearch} placeholder={lang === 'fa' ? 'جستجوی تیکت...' : 'Search tickets...'} />
           <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
