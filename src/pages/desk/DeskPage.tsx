@@ -43,6 +43,11 @@ export default function DeskPage() {
       if (filters.team && ticket.team_id !== filters.team) return false;
       if (filters.assignee && ticket.assignee_id !== filters.assignee) return false;
       if (filters.channel && ticket.channel !== filters.channel) return false;
+      if (filters.source && ticket.source !== filters.source) return false;
+      if (filters.tags && !ticket.tags.some(tag => tag.includes(filters.tags!))) return false;
+      if (filters.customer && !ticket.customer_name?.toLowerCase().includes(filters.customer.toLowerCase())) return false;
+      if (filters.date_from && new Date(ticket.created_at) < new Date(filters.date_from)) return false;
+      if (filters.date_to && new Date(ticket.created_at) > new Date(filters.date_to)) return false;
       return true;
     });
   }, [tabFiltered, search, filters]);

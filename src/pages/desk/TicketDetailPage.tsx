@@ -7,12 +7,16 @@ import { TagInput } from '../../components/TagInput';
 import { Timeline, type TimelineEvent } from '../../components/Timeline';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
+import { useCanMutate } from '../../components/ProtectedRoute';
 import { mockAgents, mockTeams, mockDepartments, mockAIAnalyses, mockAISuggestions, mockTickets } from '../../data/mock';
 
 export default function TicketDetailPage() {
   const { id } = useParams();
   const { t, lang, showToast } = useApp();
   const navigate = useNavigate();
+  
+  // Check if user can mutate (not VIEWER)
+  const canMutate = useCanMutate();
   
   // Subscribe to store changes for reactivity
   useMockStore();
@@ -160,34 +164,40 @@ export default function TicketDetailPage() {
         </div>
 
         {/* Composer */}
-        <div className="bg-white border-t border-border p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <SegmentedControl
-              options={[
-                { value: 'public', label: lang === 'fa' ? 'پاسخ' : 'Reply' },
-                { value: 'internal', label: lang === 'fa' ? 'یادداشت داخلی' : 'Internal Note' }
-              ]}
-              value={isInternal ? 'internal' : 'public'}
-              onChange={v => setIsInternal(v === 'internal')}
-            />
-          </div>
-          <div className={`rounded-lg border ${isInternal ? 'border-amber-300 bg-amber-50' : 'border-border'} p-3`}>
-            <textarea 
-              value={reply} 
-              onChange={e => setReply(e.target.value)}
-              placeholder={isInternal 
-                ? (lang === 'fa' ? 'یادداشت داخلی...' : 'Internal note...')
-                : (lang === 'fa' ? 'پاسخ خود را بنویسید...' : 'Type your reply...')}
-              className="w-full bg-transparent text-sm resize-none outline-none min-h-[80px]" 
-            />
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
-              <FileUpload onFiles={() => {}} accept="image/*,.pdf,.doc,.docx" multiple />
-              <Button onClick={handleSendMessage}>
-                <Send className="h-4 w-4" /> {lang === 'fa' ? 'ارسال' : 'Send'}
-              </Button>
+        {canMutate ? (
+          <div className="bg-white border-t border-border p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <SegmentedControl
+                options={[
+                  { value: 'public', label: lang === 'fa' ? 'پاسخ' : 'Reply' },
+                  { value: 'internal', label: lang === 'fa' ? 'یادداشت داخلی' : 'Internal Note' }
+                ]}
+                value={isInternal ? 'internal' : 'public'}
+                onChange={v => setIsInternal(v === 'internal')}
+              />
+            </div>
+            <div className={`rounded-lg border ${isInternal ? 'border-amber-300 bg-amber-50' : 'border-border'} p-3`}>
+              <textarea 
+                value={reply} 
+                onChange={e => setReply(e.target.value)}
+                placeholder={isInternal 
+                  ? (lang === 'fa' ? 'یادداشت داخلی...' : 'Internal note...')
+                  : (lang === 'fa' ? 'پاسخ خود را بنویسید...' : 'Type your reply...')}
+                className="w-full bg-transparent text-sm resize-none outline-none min-h-[80px]" 
+              />
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                <FileUpload onFiles={() => {}} accept="image/*,.pdf,.doc,.docx" multiple />
+                <Button onClick={handleSendMessage}>
+                  <Send className="h-4 w-4" /> {lang === 'fa' ? 'ارسال' : 'Send'}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-surface-alt border-t border-border p-4 text-center text-sm text-text-muted">
+            {lang === 'fa' ? 'شما مجاز به ارسال پاسخ نیستید' : 'You do not have permission to reply'}
+          </div>
+        )}
       </div>
 
       {/* Right Sidebar */}
@@ -202,17 +212,21 @@ export default function TicketDetailPage() {
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'تیم' : 'Team'}</span><span>{ticket.team_name || '—'}</span></div>
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'ارجاع به' : 'Assignee'}</span><span>{ticket.assignee_name || '—'}</span></div>
           </div>
-          <div className="flex gap-2 mt-4">
-            <Button size="sm" variant="secondary" className="flex-1" onClick={() => setShowAssignModal(true)}>
-              {lang === 'fa' ? 'ارجاع' : 'Assign'}
-            </Button>
-            <Button size="sm" variant="secondary" className="flex-1" onClick={() => setShowStatusModal(true)}>
-              {lang === 'fa' ? 'وضعیت' : 'Status'}
-            </Button>
-          </div>
-          <Button size="sm" variant="secondary" className="w-full mt-2" onClick={() => setShowPriorityModal(true)}>
-            {lang === 'fa' ? 'تغییر اولویت' : 'Change Priority'}
-          </Button>
+          {canMutate && (
+            <>
+              <div className="flex gap-2 mt-4">
+                <Button size="sm" variant="secondary" className="flex-1" onClick={() => setShowAssignModal(true)}>
+                  {lang === 'fa' ? 'ارجاع' : 'Assign'}
+                </Button>
+                <Button size="sm" variant="secondary" className="flex-1" onClick={() => setShowStatusModal(true)}>
+                  {lang === 'fa' ? 'وضعیت' : 'Status'}
+                </Button>
+              </div>
+              <Button size="sm" variant="secondary" className="w-full mt-2" onClick={() => setShowPriorityModal(true)}>
+                {lang === 'fa' ? 'تغییر اولویت' : 'Change Priority'}
+              </Button>
+            </>
+          )}
           <Button size="sm" variant="ghost" className="w-full mt-2" onClick={() => setShowHistory(true)}>
             <History className="h-4 w-4" /> {lang === 'fa' ? 'تاریخچه' : 'History'}
           </Button>
@@ -222,7 +236,15 @@ export default function TicketDetailPage() {
             <label className="block text-sm font-medium text-text-muted mb-2">
               {lang === 'fa' ? 'برچسب‌ها' : 'Tags'}
             </label>
-            <TagInput value={tags} onChange={handleTagsChange} placeholder={lang === 'fa' ? 'برچسب جدید...' : 'New tag...'} />
+            {canMutate ? (
+              <TagInput value={tags} onChange={handleTagsChange} placeholder={lang === 'fa' ? 'برچسب جدید...' : 'New tag...'} />
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {tags.length > 0 ? tags.map(tag => (
+                  <span key={tag} className="px-2 py-1 bg-brand-50 text-brand-700 rounded text-xs">{tag}</span>
+                )) : <p className="text-xs text-text-muted">{lang === 'fa' ? 'بدون برچسب' : 'No tags'}</p>}
+              </div>
+            )}
           </div>
 
           {/* Watchers */}
@@ -234,16 +256,20 @@ export default function TicketDetailPage() {
               {watchers.length > 0 ? watchers.map(w => (
                 <div key={w} className="flex items-center justify-between p-2 bg-surface-alt rounded">
                   <span className="text-sm">{mockAgents.find(a => a.user_id === w)?.display_name || w}</span>
-                  <button onClick={() => handleRemoveWatcher(w)} className="text-text-muted hover:text-danger-500">
-                    <X className="h-4 w-4" />
-                  </button>
+                  {canMutate && (
+                    <button onClick={() => handleRemoveWatcher(w)} className="text-text-muted hover:text-danger-500">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               )) : <p className="text-xs text-text-muted">{lang === 'fa' ? 'ناظری اضافه نشده' : 'No watchers added'}</p>}
-              <Select 
-                options={mockAgents.map(a => ({ value: a.user_id, label: a.display_name }))} 
-                placeholder={lang === 'fa' ? 'افزودن ناظر' : 'Add watcher'} 
-                onChange={handleAddWatcher}
-              />
+              {canMutate && (
+                <Select 
+                  options={mockAgents.map(a => ({ value: a.user_id, label: a.display_name }))} 
+                  placeholder={lang === 'fa' ? 'افزودن ناظر' : 'Add watcher'} 
+                  onChange={handleAddWatcher}
+                />
+              )}
             </div>
           </div>
         </div>

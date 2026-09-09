@@ -15,6 +15,8 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import LandingPage from './pages/landing/LandingPage';
 import NewDeskPage from './pages/desk/DeskPage';
 import NewTicketDetailPage from './pages/desk/TicketDetailPage';
+import NewTicketListPage from './pages/desk/TicketListPage';
+import NewCreateTicketPage from './pages/desk/CreateTicketPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -237,152 +239,6 @@ function LoginPage() {
               <Link to="/forgot-password" className="text-brand-600 hover:underline">{fa.auth.forgot_password}</Link>
             </p>
             <p className="text-center text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>نسخه ۱.۰ — FinoTicket © 2024</p>      </div>
-    </div>
-  );
-}
-
-// ========== TICKET LIST PAGE ==========
-function TicketListPage() {
-  const { t } = useApp();
-  const [statusFilter, setStatusFilter] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
-  const [search, setSearch] = useState('');
-  const navigate = useNavigate();
-
-  const filtered = mockTickets.filter(ticket => {
-    if (statusFilter && ticket.status !== statusFilter) return false;
-    if (priorityFilter && ticket.priority !== priorityFilter) return false;
-    if (search && !ticket.subject.includes(search) && !ticket.ticket_number.includes(search)) return false;
-    return true;
-  });
-
-  return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t.nav.tickets}</h1>
-        <Button onClick={() => navigate('/desk/tickets/new')}><Plus className="h-4 w-4" /> {t.ticket.create}</Button>
-      </div>
-      
-      <Card className="mb-4 !p-4">
-        <div className="flex flex-wrap gap-3">
-          <div className="flex-1 min-w-[200px]"><SearchInput value={search} onChange={setSearch} /></div>
-          <Select options={[{ value: '', label: 'همه وضعیت‌ها' }, ...Object.entries(t.ticket.statuses).map(([k, v]) => ({ value: k, label: v }))]} value={statusFilter} onChange={setStatusFilter} />
-          <Select options={[{ value: '', label: 'همه اولویت‌ها' }, ...Object.entries(t.ticket.priorities).map(([k, v]) => ({ value: k, label: v }))]} value={priorityFilter} onChange={setPriorityFilter} />
-        </div>
-      </Card>
-
-      <Card padding={false}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-alt border-b border-border">
-              <tr>
-                <th className="text-right px-4 py-3 font-medium text-text-muted">شماره</th>
-                <th className="text-right px-4 py-3 font-medium text-text-muted">موضوع</th>
-                <th className="text-right px-4 py-3 font-medium text-text-muted">مشتری</th>
-                <th className="text-right px-4 py-3 font-medium text-text-muted">وضعیت</th>
-                <th className="text-right px-4 py-3 font-medium text-text-muted">اولویت</th>
-                <th className="text-right px-4 py-3 font-medium text-text-muted">ارجاع</th>
-                <th className="text-right px-4 py-3 font-medium text-text-muted">SLA</th>
-                <th className="text-right px-4 py-3 font-medium text-text-muted">کانال</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(ticket => (
-                <tr key={ticket.id} onClick={() => navigate(`/desk/tickets/${ticket.id}`)}
-                  className="border-b border-border hover:bg-surface-hover cursor-pointer transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs">{ticket.ticket_number}</td>
-                  <td className="px-4 py-3 font-medium">{ticket.subject}</td>
-                  <td className="px-4 py-3">{ticket.customer_name}</td>
-                  <td className="px-4 py-3"><StatusBadge status={ticket.status} /></td>
-                  <td className="px-4 py-3"><StatusBadge status={ticket.priority} type="priority" /></td>
-                  <td className="px-4 py-3 text-text-muted">{ticket.assignee_name || '—'}</td>
-                  <td className="px-4 py-3">{ticket.sla_status ? <StatusBadge status={ticket.sla_status} type="sla" /> : '—'}</td>
-                  <td className="px-4 py-3"><Badge variant="info">{t.ticket.channels[ticket.channel as keyof typeof t.ticket.channels] || ticket.channel}</Badge></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {filtered.length === 0 && <EmptyState title={t.common.empty} />}
-      </Card>
-    </div>
-  );
-}
-
-// ========== CREATE TICKET ==========
-function CreateTicketPage() {
-  const { t, showToast, product } = useApp();
-  const navigate = useNavigate();
-  const [subject, setSubject] = useState('');
-  const [description, setDescription] = useState('');
-  const [customer, setCustomer] = useState('');
-  const [priority, setPriority] = useState('NORMAL');
-  const [category, setCategory] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    showToast('تیکت با موفقیت ایجاد شد');
-    navigate('/desk/tickets');
-  };
-
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate(-1)} className="p-1 rounded hover:bg-surface-hover"><ChevronLeft className="h-5 w-5 flip-rtl" /></button>
-        <h1 className="text-2xl font-bold">{t.ticket.create}</h1>
-      </div>
-
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2">
-          <Card>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <Input label={t.ticket.subject} value={subject} onChange={e => setSubject(e.target.value)} required placeholder="موضوع تیکت را وارد کنید" />
-              <Textarea label={t.ticket.description} value={description} onChange={e => setDescription(e.target.value)} placeholder="توضیحات مشکل یا درخواست..." />
-              
-              <div className="grid grid-cols-2 gap-4">
-                <Select label="مشتری" options={mockCustomers.map(c => ({ value: c.id, label: c.display_name }))} value={customer} onChange={setCustomer} placeholder="انتخاب مشتری" />
-                <Select label="اولویت" options={Object.entries(t.ticket.priorities).map(([k, v]) => ({ value: k, label: v }))} value={priority} onChange={setPriority} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Select label="دسته‌بندی" options={mockCategories.map(c => ({ value: c.id, label: c.name }))} value={category} onChange={setCategory} placeholder="انتخاب دسته" />
-                <Select label="دپارتمان" options={mockDepartments.map(d => ({ value: d.id, label: d.name }))} placeholder="انتخاب دپارتمان" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">ضمیمه‌ها</label>
-                <FileUpload onFiles={() => {}} multiple />
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-border">
-                <Button type="submit">{t.common.create}</Button>
-                <Button variant="secondary" onClick={() => navigate(-1)}>{t.common.cancel}</Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-
-        {/* Side Panel - AI Suggestions */}
-        <div className="space-y-4">
-          <Card>
-            <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Brain className="h-4 w-4 text-brand-500" /> دستیار هوشمند</h3>
-            <div className="space-y-3">
-              <div className="bg-surface-alt rounded-lg p-3">
-                <p className="text-xs text-text-muted mb-1">تیکت‌های مشابه</p>
-                <p className="text-sm text-text-secondary">در حال جستجو...</p>
-                <div className="mt-2 animate-pulse-slow">
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-              </div>
-              <div className="bg-surface-alt rounded-lg p-3">
-                <p className="text-xs text-text-muted mb-1">پیشنهاد دسته‌بندی</p>
-                <p className="text-sm">—</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1663,8 +1519,8 @@ export default function App() {
             <Route path="/terms" element={<LegalPage type="terms" />} />
             <Route path="/widget" element={<WidgetPage />} />
             <Route path="/desk" element={<Layout><NewDeskPage /></Layout>} />
-            <Route path="/desk/tickets" element={<Layout><TicketListPage /></Layout>} />
-            <Route path="/desk/tickets/new" element={<Layout><CreateTicketPage /></Layout>} />
+            <Route path="/desk/tickets" element={<Layout><NewTicketListPage /></Layout>} />
+            <Route path="/desk/tickets/new" element={<Layout><NewCreateTicketPage /></Layout>} />
             <Route path="/desk/tickets/:id" element={<Layout><NewTicketDetailPage /></Layout>} />
           <Route path="/desk/customers" element={<Layout><CustomersPage /></Layout>} />
           <Route path="/desk/customers/:id" element={<Layout><CustomerDetailPage /></Layout>} />

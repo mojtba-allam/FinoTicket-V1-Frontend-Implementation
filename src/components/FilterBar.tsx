@@ -16,6 +16,9 @@ export interface TicketFilters {
   channel?: string;
   tags?: string;
   customer?: string;
+  source?: string;
+  date_from?: string;
+  date_to?: string;
 }
 
 interface FilterBarProps {
@@ -131,6 +134,70 @@ export function FilterBar({ filters, onChange, onClear, lang = 'fa' }: FilterBar
           value={filters.channel || ''}
           onChange={v => updateFilter('channel', v)}
         />
+
+        <Select
+          label={lang === 'fa' ? 'منبع' : 'Source'}
+          options={[
+            { value: '', label: lang === 'fa' ? 'همه' : 'All' },
+            { value: 'web', label: 'Web' },
+            { value: 'email', label: 'Email' },
+            { value: 'widget', label: 'Widget' },
+            { value: 'api', label: 'API' },
+            { value: 'phone', label: 'Phone' }
+          ]}
+          value={filters.source || ''}
+          onChange={v => updateFilter('source', v)}
+        />
+
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            {lang === 'fa' ? 'برچسب‌ها' : 'Tags'}
+          </label>
+          <input
+            type="text"
+            value={filters.tags || ''}
+            onChange={e => updateFilter('tags', e.target.value)}
+            placeholder={lang === 'fa' ? 'جستجوی برچسب...' : 'Search tags...'}
+            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            {lang === 'fa' ? 'مشتری' : 'Customer'}
+          </label>
+          <input
+            type="text"
+            value={filters.customer || ''}
+            onChange={e => updateFilter('customer', e.target.value)}
+            placeholder={lang === 'fa' ? 'جستجوی مشتری...' : 'Search customer...'}
+            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            {lang === 'fa' ? 'از تاریخ' : 'From Date'}
+          </label>
+          <input
+            type="date"
+            value={filters.date_from || ''}
+            onChange={e => updateFilter('date_from', e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            {lang === 'fa' ? 'تا تاریخ' : 'To Date'}
+          </label>
+          <input
+            type="date"
+            value={filters.date_to || ''}
+            onChange={e => updateFilter('date_to', e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+          />
+        </div>
       </div>
 
       {hasFilters && (
@@ -179,6 +246,54 @@ export function FilterBar({ filters, onChange, onClear, lang = 'fa' }: FilterBar
             <Badge variant="brand">
               {lang === 'fa' ? 'ارجاع به' : 'Assignee'}: {mockAgents.find(a => a.user_id === filters.assignee)?.display_name}
               <button onClick={() => removeFilter('assignee')} className="mr-1 hover:text-brand-800">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.channel && (
+            <Badge variant="brand">
+              {lang === 'fa' ? 'کانال' : 'Channel'}: {t.ticket.channels[filters.channel as keyof typeof t.ticket.channels]}
+              <button onClick={() => removeFilter('channel')} className="mr-1 hover:text-brand-800">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.source && (
+            <Badge variant="brand">
+              {lang === 'fa' ? 'منبع' : 'Source'}: {filters.source}
+              <button onClick={() => removeFilter('source')} className="mr-1 hover:text-brand-800">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.tags && (
+            <Badge variant="brand">
+              {lang === 'fa' ? 'برچسب' : 'Tag'}: {filters.tags}
+              <button onClick={() => removeFilter('tags')} className="mr-1 hover:text-brand-800">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.customer && (
+            <Badge variant="brand">
+              {lang === 'fa' ? 'مشتری' : 'Customer'}: {filters.customer}
+              <button onClick={() => removeFilter('customer')} className="mr-1 hover:text-brand-800">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.date_from && (
+            <Badge variant="brand">
+              {lang === 'fa' ? 'از' : 'From'}: {filters.date_from}
+              <button onClick={() => removeFilter('date_from')} className="mr-1 hover:text-brand-800">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.date_to && (
+            <Badge variant="brand">
+              {lang === 'fa' ? 'تا' : 'To'}: {filters.date_to}
+              <button onClick={() => removeFilter('date_to')} className="mr-1 hover:text-brand-800">
                 <X className="h-3 w-3" />
               </button>
             </Badge>
