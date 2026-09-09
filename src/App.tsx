@@ -1,7 +1,12 @@
-import React, { useState, createContext, useContext, useMemo } from 'react';
+import React, { useState, useEffect, createContext, useContext, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Inbox, Users, Search, BookOpen, BarChart3, Settings, LogOut, Menu, X, Bell, ChevronLeft, Package, Tags, Building2, UserCheck, Shield, Workflow, Zap, Globe, Webhook, FileSearch, Ticket as TicketIcon, MessageSquare, Clock, AlertTriangle, TrendingUp, UserPlus, Plus, Send, Paperclip, Eye, EyeOff, Star, Filter, ArrowUpDown, MoreHorizontal, CheckCircle2, XCircle, Brain, Lightbulb, Link2, ChevronDown, Home, History } from 'lucide-react';
 import { Button, Input, Textarea, Select, Badge, StatusBadge, Avatar, Modal, Drawer, Toast, EmptyState, Loading, Tabs, CopyButton, Card, KPICard, SearchInput, SegmentedControl, ErrorState, DegradedBanner, FileUpload, Pagination, Skeleton } from './components/ui';
+import { NotificationCenter } from './components/NotificationCenter';
+import { SLACountdown } from './components/SLACountdown';
+import { ConfirmDialog } from './components/ConfirmDialog';
+import { TagInput } from './components/TagInput';
+import { PresenceSelect } from './components/PresenceSelect';
 import { fa, en, type Lang } from './i18n';
 import { mockUser, mockProducts, mockTickets, mockMessages, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockAPIClients, mockWebhooks, mockAuditLogs, mockAIAnalyses, mockAISuggestions, mockSearchResults, mockAnalytics } from './data/mock';
 import type { Ticket, Message, Role, Presence, TicketStatus, Priority } from './types';
@@ -30,6 +35,12 @@ function AppProvider({ children }: { children: React.ReactNode }) {
   const [presence, setPresence] = useState<Presence>('ONLINE');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
   const t = lang === 'fa' ? fa : en;
+
+  // Set direction based on language
+  useEffect(() => {
+    document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const showToast = (msg: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => setToast({ msg, type });
 
@@ -163,36 +174,16 @@ function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-2">
             {/* Presence */}
-            <select value={presence} onChange={e => setPresence(e.target.value as Presence)}
-              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-white">
-              <option value="ONLINE">🟢 آنلاین</option>
-              <option value="AWAY">🟡 دور</option>
-              <option value="BUSY">🔴 مشغول</option>
-              <option value="OFFLINE">⚫ آفلاین</option>
-            </select>
+            <PresenceSelect value={presence} onChange={setPresence} />
 
             {/* Language */}
             <button onClick={() => setLang(lang === 'fa' ? 'en' : 'fa')}
-              className="px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-surface-hover">
+              className="px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-surface-hover font-medium">
               {lang === 'fa' ? 'EN' : 'فا'}
             </button>
 
             {/* Notifications */}
-            <div className="relative">
-              <button onClick={() => setShowNotif(!showNotif)} className="p-2 rounded-lg hover:bg-surface-hover relative">
-                <Bell className="h-5 w-5 text-text-secondary" />
-                <span className="absolute top-1 right-1 h-2 w-2 bg-danger-500 rounded-full" />
-              </button>
-              {showNotif && (
-                <div className="absolute top-full left-0 mt-1 w-72 bg-white rounded-lg border border-border shadow-lg z-50">
-                  <div className="p-3 border-b border-border"><span className="font-medium text-sm">اعلان‌ها</span></div>
-                  <div className="p-3 space-y-2">
-                    <div className="text-sm p-2 rounded-lg bg-warning-50 border border-amber-200">⚠ تیکت FT-1003 - SLA نقض شده</div>
-                    <div className="text-sm p-2 rounded-lg bg-brand-50 border border-brand-200">📩 تیکت جدید FT-1006 ارجاع شد</div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationCenter />
 
             {/* Logout */}
             <Link to="/login" className="p-2 rounded-lg hover:bg-surface-hover">
@@ -245,11 +236,14 @@ function LoginPage() {
               {loading ? <><span className="animate-spin">⏳</span> {fa.common.loading}</> : fa.auth.login_button}
             </Button>
             <p className="text-center text-xs text-text-muted">
-              <Link to="#" className="text-brand-600 hover:underline">{fa.auth.forgot_password}</Link>
+              <Link to="/forgot-password" className="text-brand-600 hover:underline">{fa.auth.forgot_password}</Link>
             </p>
           </form>
         </Card>
-            <p className="text-center text-xs mt-6" style={{ color: 'var(--color-text-muted)' }}>نسخه ۱.۰ — FinoTicket © 2024</p>      </div>
+            <p className="text-center text-xs mt-6" style={{ color: 'var(--color-text-muted)' }}>
+              <Link to="/forgot-password" className="text-brand-600 hover:underline">{fa.auth.forgot_password}</Link>
+            </p>
+            <p className="text-center text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>نسخه ۱.۰ — FinoTicket © 2024</p>      </div>
     </div>
   );
 }
@@ -265,7 +259,7 @@ function DeskPage() {
     { id: 'all', label: t.common.all, count: mockTickets.length },
     { id: 'my', label: 'تیکت‌های من', count: mockTickets.filter(t => t.assignee_id === 'u-001').length },
     { id: 'unassigned', label: 'ارجاع نشده', count: mockTickets.filter(t => !t.assignee_id).length },
-    { id: 'watching', label: 'تحت نظر', count: 2 },
+    { id: 'watching', label: 'تحت نظر', count: mockTickets.filter(t => t.watchers.includes('u-001')).length },
     { id: 'sla', label: 'ریسک SLA', count: mockTickets.filter(t => t.sla_status === 'WARNING' || t.sla_status === 'BREACHED').length },
   ];
 
@@ -401,7 +395,11 @@ function TicketDetailPage() {
   const [showAI, setShowAI] = useState(true);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showPriorityModal, setShowPriorityModal] = useState(false);
+  const [showResolveModal, setShowResolveModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [tags, setTags] = useState(ticket?.tags || []);
+  const [watchers, setWatchers] = useState<string[]>(ticket?.watchers || []);
 
   if (!ticket) return <div className="p-6"><ErrorState title="تیکت یافت نشد" /></div>;
 
@@ -420,7 +418,9 @@ function TicketDetailPage() {
             <CopyButton text={ticket.ticket_number} />
             <StatusBadge status={ticket.status} />
             <StatusBadge status={ticket.priority} type="priority" />
-            {ticket.sla_status && <StatusBadge status={ticket.sla_status} type="sla" />}
+            {ticket.sla_first_response_due && (
+              <SLACountdown dueAt={ticket.sla_first_response_due} type="first_response" size="sm" />
+            )}
           </div>
           <h1 className="text-xl font-bold">{ticket.subject}</h1>
           <div className="flex items-center gap-4 mt-2 text-sm text-text-muted">
@@ -503,9 +503,41 @@ function TicketDetailPage() {
             <Button size="sm" variant="secondary" className="flex-1" onClick={() => setShowAssignModal(true)}>{t.ticket.assign}</Button>
             <Button size="sm" variant="secondary" className="flex-1" onClick={() => setShowStatusModal(true)}>{t.ticket.change_status}</Button>
           </div>
+          <Button size="sm" variant="secondary" className="w-full mt-2" onClick={() => setShowPriorityModal(true)}>
+            {t.ticket.change_priority}
+          </Button>
+          <Button size="sm" variant="success" className="w-full mt-2" onClick={() => setShowResolveModal(true)}>
+            <CheckCircle2 className="h-4 w-4" /> حل شده
+          </Button>
           <Button size="sm" variant="ghost" className="w-full mt-2" onClick={() => setShowHistory(true)}>
             <History className="h-4 w-4" /> {t.ticket.history}
           </Button>
+
+          {/* Tags Section */}
+          <div className="mt-4 pt-4 border-t border-border">
+            <label className="block text-sm font-medium text-text-muted mb-2">برچسب‌ها</label>
+            <TagInput value={tags} onChange={setTags} placeholder="برچسب جدید..." />
+          </div>
+
+          {/* Watchers Section */}
+          <div className="mt-4 pt-4 border-t border-border">
+            <label className="block text-sm font-medium text-text-muted mb-2">ناظران</label>
+            <div className="space-y-2">
+              {watchers.length > 0 ? watchers.map(w => (
+                <div key={w} className="flex items-center justify-between p-2 bg-surface-alt rounded">
+                  <span className="text-sm">{mockAgents.find(a => a.user_id === w)?.display_name || w}</span>
+                  <button onClick={() => setWatchers(watchers.filter(x => x !== w))} className="text-text-muted hover:text-danger-500">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )) : <p className="text-xs text-text-muted">ناظری اضافه نشده</p>}
+              <Select 
+                options={mockAgents.map(a => ({ value: a.user_id, label: a.display_name }))} 
+                placeholder="افزودن ناظر" 
+                onChange={(v) => { if (v && !watchers.includes(v)) setWatchers([...watchers, v]); }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Customer 360 */}
@@ -623,6 +655,33 @@ function TicketDetailPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Priority Change Modal */}
+      <Modal open={showPriorityModal} onClose={() => setShowPriorityModal(false)} title={t.ticket.change_priority}>
+        <div className="space-y-4">
+          <Select 
+            label="اولویت جدید" 
+            options={Object.entries(t.ticket.priorities).map(([k, v]) => ({ value: k, label: v }))} 
+          />
+          <Textarea label="دلیل (اختیاری)" placeholder="چرا اولویت تغییر می‌کند؟" rows={3} />
+          <div className="flex gap-3 pt-4">
+            <Button onClick={() => { showToast('اولویت تغییر کرد'); setShowPriorityModal(false); }}>تغییر اولویت</Button>
+            <Button variant="secondary" onClick={() => setShowPriorityModal(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Resolve/Close Confirm */}
+      <ConfirmDialog
+        open={showResolveModal}
+        onClose={() => setShowResolveModal(false)}
+        onConfirm={() => { showToast('تیکت حل شد'); setShowResolveModal(false); }}
+        title="حل کردن تیکت"
+        description="آیا مطمئن هستید که می‌خواهید این تیکت را به عنوان حل شده علامت‌گذاری کنید؟ مشتری مطلع خواهد شد."
+        confirmLabel="حل شده"
+        cancelLabel="انصراف"
+        variant="success"
+      />
 
       {/* History Drawer */}
       <Drawer open={showHistory} onClose={() => setShowHistory(false)} title={t.ticket.history} side="left">
@@ -1202,6 +1261,29 @@ function AnalyticsPage() {
               </Pie>
               <Tooltip />
             </PieChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* By Priority */}
+        <Card>
+          <h3 className="font-semibold mb-4">{t.analytics.by_priority}</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={data.by_priority}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="priority" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Bar dataKey="count" name="تعداد" radius={[4, 4, 0, 0]}>
+                {data.by_priority.map((entry, i) => (
+                  <Cell key={i} fill={
+                    entry.priority === 'کم' ? '#10b981' :
+                    entry.priority === 'معمولی' ? '#0B7C8C' :
+                    entry.priority === 'بالا' ? '#f59e0b' :
+                    entry.priority === 'فوری' ? '#ef4444' : '#7c2d12'
+                  } />
+                ))}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </Card>
       </div>
@@ -1861,6 +1943,99 @@ function WidgetPage() {
   );
 }
 
+// ========== FORGOT PASSWORD ==========
+function ForgotPasswordPage() {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setTimeout(() => { setSent(true); setLoading(false); }, 1000);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--gradient-mesh)' }}>
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--gradient-hero)' }}>
+            <TicketIcon className="h-9 w-9 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--color-brand-800)' }}>بازیابی رمز عبور</h1>
+        </div>
+        <Card className="!p-8">
+          {sent ? (
+            <div className="text-center">
+              <CheckCircle2 className="h-12 w-12 text-success-500 mx-auto mb-4" />
+              <h3 className="font-bold mb-2">ایمیل ارسال شد</h3>
+              <p className="text-sm text-text-muted mb-4">لینک بازیابی به ایمیل شما ارسال شد. لطفاً صندوق ورودی خود را بررسی کنید.</p>
+              <Link to="/login"><Button variant="secondary">بازگشت به ورود</Button></Link>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <Input label="ایمیل" type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} placeholder="email@example.com" required />
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'در حال ارسال...' : 'ارسال لینک بازیابی'}
+              </Button>
+              <p className="text-center text-xs text-text-muted">
+                <Link to="/login" className="text-brand-600 hover:underline">بازگشت به ورود</Link>
+              </p>
+            </form>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ========== PRIVACY / TERMS ==========
+function LegalPage({ type }: { type: 'privacy' | 'terms' }) {
+  const { lang } = useApp();
+  const isPrivacy = type === 'privacy';
+  
+  return (
+    <div className="min-h-screen bg-white">
+      <nav className="border-b border-border px-6 py-4">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--gradient-hero)' }}>
+            <TicketIcon className="h-5 w-5 text-white" />
+          </div>
+          <span className="font-bold" style={{ color: 'var(--color-brand-700)' }}>فینوتیکت</span>
+        </Link>
+      </nav>
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <h1 className="text-3xl font-bold mb-8" style={{ color: 'var(--color-brand-800)' }}>
+          {isPrivacy ? 'سیاست حریم خصوصی' : 'شرایط استفاده'}
+        </h1>
+        <div className="prose max-w-none text-text-secondary">
+          {isPrivacy ? (
+            <>
+              <p>فینوتیکت به حریم خصوصی کاربران خود متعهد است. این سیاست توضیح می‌دهد که ما چگونه اطلاعات شما را جمع‌آوری، استفاده و محافظت می‌کنیم.</p>
+              <h2 className="text-xl font-bold mt-6 mb-3 text-text">۱. اطلاعات جمع‌آوری شده</h2>
+              <p>ما اطلاعات زیر را جمع‌آوری می‌کنیم: نام، ایمیل، شماره تلفن، و داده‌های مربوط به تیکت‌های پشتیبانی.</p>
+              <h2 className="text-xl font-bold mt-6 mb-3 text-text">۲. استفاده از اطلاعات</h2>
+              <p>اطلاعات شما فقط برای ارائه خدمات پشتیبانی و بهبود تجربه کاربری استفاده می‌شود.</p>
+              <h2 className="text-xl font-bold mt-6 mb-3 text-text">۳. امنیت</h2>
+              <p>ما از رمزنگاری و پروتکل‌های امنیتی استاندارد برای محافظت از اطلاعات شما استفاده می‌کنیم.</p>
+            </>
+          ) : (
+            <>
+              <p>با استفاده از سرویس فینوتیکت، شما با شرایط زیر موافقت می‌کنید.</p>
+              <h2 className="text-xl font-bold mt-6 mb-3 text-text">۱. استفاده مجاز</h2>
+              <p>شما متعهد می‌شوید که از سرویس فقط برای اهداف قانونی و مطابق با قوانین جمهوری اسلامی ایران استفاده کنید.</p>
+              <h2 className="text-xl font-bold mt-6 mb-3 text-text">۲. مسئولیت حساب</h2>
+              <p>شما مسئول حفظ امنیت اطلاعات حساب کاربری خود هستید.</p>
+              <h2 className="text-xl font-bold mt-6 mb-3 text-text">۳. محدودیت مسئولیت</h2>
+              <p>فینوتیکت مسئولیتی در قبال خسارات ناشی از استفاده نادرست از سرویس ندارد.</p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ========== FORBIDDEN / NOT FOUND ==========
 function ForbiddenPage() {
   return (
@@ -1898,6 +2073,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/privacy" element={<LegalPage type="privacy" />} />
+          <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="/widget" element={<WidgetPage />} />
           <Route path="/desk" element={<Layout><DeskPage /></Layout>} />
           <Route path="/desk/tickets" element={<Layout><TicketListPage /></Layout>} />
