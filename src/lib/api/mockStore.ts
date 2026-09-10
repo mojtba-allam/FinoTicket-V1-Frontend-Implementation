@@ -2,7 +2,7 @@
 // This provides in-memory persistence for all API operations with React reactivity
 
 import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment } from '../../types';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 
 // In-memory store with subscription support
@@ -60,6 +60,26 @@ class MockStore {
           sort_order: 0,
         },
       ],
+      created_at: '2024-01-12T10:30:00Z',
+    },
+  ];
+  automations: Automation[] = [
+    {
+      id: 'au-1',
+      name: 'تغییر وضعیت به در انتظار مشتری',
+      trigger_event: 'message.added',
+      conditions: [{ field: 'sender_type', operator: 'equals', value: 'AGENT' }],
+      actions: [{ type: 'set_status', value: 'WAITING_CUSTOMER' }],
+      status: 'ACTIVE',
+      created_at: '2024-01-10T08:00:00Z',
+    },
+    {
+      id: 'au-2',
+      name: 'اولویت‌بندی خودکار کلمات کلیدی',
+      trigger_event: 'ticket.created',
+      conditions: [{ field: 'subject', operator: 'contains', value: 'فوری' }],
+      actions: [{ type: 'set_priority', value: 'HIGH' }],
+      status: 'ACTIVE',
       created_at: '2024-01-12T10:30:00Z',
     },
   ];
@@ -576,6 +596,36 @@ class MockStore {
     return this.agents;
   }
 
+  getAgent(id: string) {
+    return this.agents.find(a => a.id === id);
+  }
+
+  createAgent(agent: Partial<Agent>) {
+    const newAgent: Agent = {
+      id: `ag-${Date.now()}`,
+      tenant_id: agent.tenant_id || 'ten-1',
+      user_id: agent.user_id || `user-${Date.now()}`,
+      display_name: agent.display_name || '',
+      avatar_url: agent.avatar_url,
+      timezone: agent.timezone || 'Asia/Tehran',
+      language: agent.language || 'fa',
+      max_active_tickets: agent.max_active_tickets || 20,
+      presence: agent.presence || 'OFFLINE',
+      status: agent.status || 'ACTIVE',
+    };
+    this.agents.push(newAgent);
+    this.notify();
+    return newAgent;
+  }
+
+  updateAgent(id: string, updates: Partial<Agent>) {
+    const index = this.agents.findIndex(a => a.id === id);
+    if (index === -1) return null;
+    this.agents[index] = { ...this.agents[index], ...updates };
+    this.notify();
+    return this.agents[index];
+  }
+
   // SLA Policies
   getSLAPolicies() {
     return this.slaPolicies;
@@ -713,6 +763,38 @@ class MockStore {
     workflow.version++;
     this.notify();
     return true;
+  }
+
+  // Automations
+  getAutomations() {
+    return this.automations;
+  }
+
+  getAutomation(id: string) {
+    return this.automations.find(a => a.id === id);
+  }
+
+  createAutomation(automation: Partial<Automation>) {
+    const newAutomation: Automation = {
+      id: `au-${Date.now()}`,
+      name: automation.name || '',
+      trigger_event: automation.trigger_event || 'ticket.created',
+      conditions: automation.conditions || [],
+      actions: automation.actions || [],
+      status: automation.status || 'ACTIVE',
+      created_at: new Date().toISOString(),
+    };
+    this.automations.push(newAutomation);
+    this.notify();
+    return newAutomation;
+  }
+
+  updateAutomation(id: string, updates: Partial<Automation>) {
+    const index = this.automations.findIndex(a => a.id === id);
+    if (index === -1) return null;
+    this.automations[index] = { ...this.automations[index], ...updates };
+    this.notify();
+    return this.automations[index];
   }
 
   // Topics

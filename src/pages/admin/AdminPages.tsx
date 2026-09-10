@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, UserCheck, Users, Shield, Clock, Workflow, Zap, BookOpen, Globe, Webhook, FileSearch, Plus } from 'lucide-react';
-import { Card, Badge, Button, Modal, Input, Select } from '../../components/ui';
-import { mockDepartments, mockTeams, mockAgents, mockKnowledgeBases, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
+import { Card, Badge, Button, Modal, Input, Select, EmptyState } from '../../components/ui';
+import { mockDepartments, mockTeams, mockKnowledgeBases, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
 import { useApp } from '../../app/providers';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 
@@ -48,33 +48,233 @@ export function AdminDepartmentsPage() {
 }
 
 export function AdminAgentsPage() {
-  const { t, lang } = useApp();
+  const { t, lang, showToast } = useApp();
+  const navigate = useNavigate();
+  useMockStore();
+  
+  const [search, setSearch] = useState('');
+  const [presenceFilter, setPresenceFilter] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<any>(null);
+  
+  const agents = mockStore.getAgents();
+  
+  const filteredAgents = agents.filter(agent => {
+    const matchesSearch = !search || 
+      agent.display_name.toLowerCase().includes(search.toLowerCase()) ||
+      agent.user_id.toLowerCase().includes(search.toLowerCase());
+    const matchesPresence = !presenceFilter || agent.presence === presenceFilter;
+    return matchesSearch && matchesPresence;
+  });
+
+  const handleCreate = () => {
+    setEditingAgent(null);
+    setShowCreate(true);
+  };
+
+  const handleEdit = (agent: any) => {
+    setEditingAgent(agent);
+    setShowCreate(true);
+  };
+
+  const handleSave = (agentData: any) => {
+    if (editingAgent) {
+      mockStore.updateAgent(editingAgent.id, agentData);
+      showToast(lang === 'fa' ? 'کارشناس بروزرسانی شد' : 'Agent updated', 'success');
+    } else {
+      mockStore.createAgent(agentData);
+      showToast(lang === 'fa' ? 'کارشناس ایجاد شد' : 'Agent created', 'success');
+    }
+    setShowCreate(false);
+    setEditingAgent(null);
+  };
+
+  const handleDeactivate = (agentId: string) => {
+    mockStore.updateAgent(agentId, { status: 'INACTIVE' });
+    showToast(lang === 'fa' ? 'کارشناس غیرفعال شد' : 'Agent deactivated', 'success');
+  };
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.agents}</h1>
-      <div className="grid grid-cols-3 gap-4">
-        {mockAgents.map(agent => (
-          <Card key={agent.id}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-12 w-12 rounded-full bg-brand-500 flex items-center justify-center text-white text-lg font-bold">
-                {agent.display_name.charAt(0)}
-              </div>
-              <div>
-                <h3 className="font-medium">{agent.display_name}</h3>
-                <div className="flex items-center gap-1">
-                  <span className={`h-2 w-2 rounded-full ${agent.presence === 'ONLINE' ? 'bg-success-500' : agent.presence === 'AWAY' ? 'bg-warning-500' : agent.presence === 'BUSY' ? 'bg-danger-500' : 'bg-gray-400'}`} />
-                  <span className="text-xs text-text-muted">{agent.presence}</span>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-1.5 text-sm text-text-muted">
-              <p>{lang === 'fa' ? 'زمان‌بندی' : 'Timezone'}: {agent.timezone}</p>
-              <p>{lang === 'fa' ? 'حداکثر تیکت فعال' : 'Max active'}: {agent.max_active_tickets}</p>
-            </div>
-          </Card>
-        ))}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.agents}</h1>
+        <Button onClick={handleCreate}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'کارشناس جدید' : 'New Agent'}
+        </Button>
       </div>
+
+      {/* Filters */}
+      <Card className="mb-6">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Input
+              placeholder={lang === 'fa' ? 'جستجو...' : 'Search...'}
+              value={search}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select
+            value={presenceFilter}
+            onChange={setPresenceFilter}
+            options={[
+              { value: '', label: lang === 'fa' ? 'همه وضعیت‌ها' : 'All Status' },
+              { value: 'ONLINE', label: lang === 'fa' ? 'آنلاین' : 'Online' },
+              { value: 'AWAY', label: lang === 'fa' ? 'دور' : 'Away' },
+              { value: 'BUSY', label: lang === 'fa' ? 'مشغول' : 'Busy' },
+              { value: 'OFFLINE', label: lang === 'fa' ? 'آفلاین' : 'Offline' },
+            ]}
+          />
+        </div>
+      </Card>
+
+      {/* Agents Grid */}
+      {filteredAgents.length === 0 ? (
+        <EmptyState
+          icon={<Users className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'کارشناسی یافت نشد' : 'No agents found'}
+          description={lang === 'fa' ? 'کارشناس جدید ایجاد کنید' : 'Create a new agent'}
+          action={
+            <Button onClick={handleCreate}>
+              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد کارشناس' : 'Create Agent'}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-3 gap-4">
+          {filteredAgents.map(agent => (
+            <div key={agent.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleEdit(agent)}>
+              <Card>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-12 w-12 rounded-full bg-brand-500 flex items-center justify-center text-white text-lg font-bold">
+                  {agent.display_name.charAt(0)}
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium">{agent.display_name}</h3>
+                  <div className="flex items-center gap-1">
+                    <span className={`h-2 w-2 rounded-full ${agent.presence === 'ONLINE' ? 'bg-success-500' : agent.presence === 'AWAY' ? 'bg-warning-500' : agent.presence === 'BUSY' ? 'bg-danger-500' : 'bg-gray-400'}`} />
+                    <span className="text-xs text-text-muted">{agent.presence}</span>
+                  </div>
+                </div>
+                <Badge variant={agent.status === 'ACTIVE' ? 'success' : 'default'}>
+                  {agent.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                </Badge>
+              </div>
+              <div className="space-y-1.5 text-sm text-text-muted">
+                <p>{lang === 'fa' ? 'زمان‌بندی' : 'Timezone'}: {agent.timezone}</p>
+                <p>{lang === 'fa' ? 'حداکثر تیکت فعال' : 'Max active'}: {agent.max_active_tickets}</p>
+                <p>{lang === 'fa' ? 'زبان' : 'Language'}: {agent.language === 'fa' ? 'فارسی' : 'English'}</p>
+              </div>
+              {agent.status === 'ACTIVE' && (
+                <div className="mt-3 pt-3 border-t border-border" onClick={(e) => e.stopPropagation()}>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="w-full text-danger-500 hover:text-danger-600"
+                    onClick={() => handleDeactivate(agent.id)}
+                  >
+                    {lang === 'fa' ? 'غیرفعال کردن' : 'Deactivate'}
+                  </Button>
+                </div>
+              )}
+              </Card>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      {showCreate && (
+        <AgentFormModal
+          agent={editingAgent}
+          onSave={handleSave}
+          onClose={() => {
+            setShowCreate(false);
+            setEditingAgent(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data: any) => void; onClose: () => void }) {
+  const { lang } = useApp();
+  const [formData, setFormData] = useState({
+    display_name: agent?.display_name || '',
+    timezone: agent?.timezone || 'Asia/Tehran',
+    language: agent?.language || 'fa',
+    max_active_tickets: agent?.max_active_tickets || 20,
+    presence: agent?.presence || 'OFFLINE',
+    status: agent?.status || 'ACTIVE',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.display_name.trim()) {
+      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      return;
+    }
+    onSave(formData);
+  };
+
+  return (
+    <Modal open={true} onClose={onClose} title={agent ? (lang === 'fa' ? 'ویرایش کارشناس' : 'Edit Agent') : (lang === 'fa' ? 'کارشناس جدید' : 'New Agent')}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label={lang === 'fa' ? 'نام نمایشی' : 'Display Name'}
+          value={formData.display_name}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, display_name: e.target.value })}
+          required
+        />
+        <Select
+          label={lang === 'fa' ? 'منطقه زمانی' : 'Timezone'}
+          value={formData.timezone}
+          onChange={(v) => setFormData({ ...formData, timezone: v })}
+          options={[
+            { value: 'Asia/Tehran', label: 'Tehran (UTC+3:30)' },
+            { value: 'UTC', label: 'UTC' },
+            { value: 'America/New_York', label: 'New York (UTC-5)' },
+            { value: 'Europe/London', label: 'London (UTC+0)' },
+          ]}
+        />
+        <Select
+          label={lang === 'fa' ? 'زبان' : 'Language'}
+          value={formData.language}
+          onChange={(v) => setFormData({ ...formData, language: v as 'fa' | 'en' })}
+          options={[
+            { value: 'fa', label: 'فارسی' },
+            { value: 'en', label: 'English' },
+          ]}
+        />
+        <Input
+          label={lang === 'fa' ? 'حداکثر تیکت فعال' : 'Max Active Tickets'}
+          type="number"
+          value={formData.max_active_tickets}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, max_active_tickets: parseInt(e.target.value) })}
+          min="1"
+          max="100"
+        />
+        <Select
+          label={lang === 'fa' ? 'وضعیت حضور' : 'Presence'}
+          value={formData.presence}
+          onChange={(v) => setFormData({ ...formData, presence: v as any })}
+          options={[
+            { value: 'ONLINE', label: lang === 'fa' ? 'آنلاین' : 'Online' },
+            { value: 'AWAY', label: lang === 'fa' ? 'دور' : 'Away' },
+            { value: 'BUSY', label: lang === 'fa' ? 'مشغول' : 'Busy' },
+            { value: 'OFFLINE', label: lang === 'fa' ? 'آفلاین' : 'Offline' },
+          ]}
+        />
+        <div className="flex gap-3 pt-4">
+          <Button type="submit">
+            {agent ? (lang === 'fa' ? 'بروزرسانی' : 'Update') : (lang === 'fa' ? 'ایجاد' : 'Create')}
+          </Button>
+          <Button variant="secondary" type="button" onClick={onClose}>
+            {lang === 'fa' ? 'انصراف' : 'Cancel'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -322,30 +522,325 @@ export function AdminWorkflowsPage() {
 }
 
 export function AdminAutomationsPage() {
-  const { t, lang } = useApp();
-  const automations = [
-    { id: 'au-1', name: lang === 'fa' ? 'تغییر وضعیت به در انتظار مشتری' : 'Set status to Waiting Customer', trigger_event: 'message.added', status: 'ACTIVE' as const },
-    { id: 'au-2', name: lang === 'fa' ? 'اولویت‌بندی خودکار کلمات کلیدی' : 'Auto-prioritize keywords', trigger_event: 'ticket.created', status: 'ACTIVE' as const },
-  ];
+  const { t, lang, showToast } = useApp();
+  useMockStore();
+  
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingAutomation, setEditingAutomation] = useState<any>(null);
+  
+  const automations = mockStore.getAutomations();
+
+  const handleCreate = () => {
+    setEditingAutomation(null);
+    setShowCreate(true);
+  };
+
+  const handleEdit = (automation: any) => {
+    setEditingAutomation(automation);
+    setShowCreate(true);
+  };
+
+  const handleSave = (automationData: any) => {
+    if (editingAutomation) {
+      mockStore.updateAutomation(editingAutomation.id, automationData);
+      showToast(lang === 'fa' ? 'اتوماسیون بروزرسانی شد' : 'Automation updated', 'success');
+    } else {
+      mockStore.createAutomation(automationData);
+      showToast(lang === 'fa' ? 'اتوماسیون ایجاد شد' : 'Automation created', 'success');
+    }
+    setShowCreate(false);
+    setEditingAutomation(null);
+  };
+
+  const handleToggle = (automationId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    mockStore.updateAutomation(automationId, { status: newStatus });
+    showToast(
+      newStatus === 'ACTIVE' 
+        ? (lang === 'fa' ? 'اتوماسیون فعال شد' : 'Automation enabled')
+        : (lang === 'fa' ? 'اتوماسیون غیرفعال شد' : 'Automation disabled'),
+      'success'
+    );
+  };
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.automations}</h1>
-      <div className="space-y-4">
-        {automations.map(au => (
-          <Card key={au.id}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-semibold">{au.name}</h3>
-                <p className="text-xs text-text-muted">{lang === 'fa' ? 'راه‌انداز' : 'Trigger'}: {au.trigger_event}</p>
-              </div>
-              <Badge variant={au.status === 'ACTIVE' ? 'success' : 'default'}>
-                {au.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-              </Badge>
-            </div>
-          </Card>
-        ))}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.automations}</h1>
+        <Button onClick={handleCreate}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'اتوماسیون جدید' : 'New Automation'}
+        </Button>
       </div>
+
+      {automations.length === 0 ? (
+        <EmptyState
+          icon={<Zap className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'اتوماسیونی وجود ندارد' : 'No automations'}
+          description={lang === 'fa' ? 'اتوماسیون جدید ایجاد کنید' : 'Create a new automation'}
+          action={
+            <Button onClick={handleCreate}>
+              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد اتوماسیون' : 'Create Automation'}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-4">
+          {automations.map(au => (
+            <div key={au.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleEdit(au)}>
+              <Card>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{au.name}</h3>
+                    <p className="text-xs text-text-muted mt-1">
+                      {lang === 'fa' ? 'راه‌انداز' : 'Trigger'}: {au.trigger_event}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant={au.status === 'ACTIVE' ? 'success' : 'default'}>
+                      {au.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                    </Badge>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggle(au.id, au.status);
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        au.status === 'ACTIVE' ? 'bg-success-500' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          au.status === 'ACTIVE' ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Conditions */}
+                {au.conditions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-medium text-text-muted mb-2">
+                      {lang === 'fa' ? 'شرایط' : 'Conditions'}:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {au.conditions.map((cond: any, i: number) => (
+                        <Badge key={i} variant="info">
+                          {cond.field} {cond.operator} {cond.value}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {au.actions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-medium text-text-muted mb-2">
+                      {lang === 'fa' ? 'عملیات' : 'Actions'}:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {au.actions.map((action: any, i: number) => (
+                        <Badge key={i} variant="brand">
+                          {action.type}: {action.value}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      {showCreate && (
+        <AutomationFormModal
+          automation={editingAutomation}
+          onSave={handleSave}
+          onClose={() => {
+            setShowCreate(false);
+            setEditingAutomation(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function AutomationFormModal({ automation, onSave, onClose }: { automation: any; onSave: (data: any) => void; onClose: () => void }) {
+  const { lang } = useApp();
+  const [formData, setFormData] = useState({
+    name: automation?.name || '',
+    trigger_event: automation?.trigger_event || 'ticket.created',
+    conditions: automation?.conditions || [],
+    actions: automation?.actions || [],
+    status: automation?.status || 'ACTIVE',
+  });
+
+  const [newCondition, setNewCondition] = useState({ field: '', operator: 'equals', value: '' });
+  const [newAction, setNewAction] = useState({ type: 'set_priority', value: '' });
+
+  const handleAddCondition = () => {
+    if (newCondition.field && newCondition.value) {
+      setFormData({
+        ...formData,
+        conditions: [...formData.conditions, { ...newCondition }],
+      });
+      setNewCondition({ field: '', operator: 'equals', value: '' });
+    }
+  };
+
+  const handleRemoveCondition = (index: number) => {
+    setFormData({
+      ...formData,
+      conditions: formData.conditions.filter((_: any, i: number) => i !== index),
+    });
+  };
+
+  const handleAddAction = () => {
+    if (newAction.type && newAction.value) {
+      setFormData({
+        ...formData,
+        actions: [...formData.actions, { ...newAction }],
+      });
+      setNewAction({ type: 'set_priority', value: '' });
+    }
+  };
+
+  const handleRemoveAction = (index: number) => {
+    setFormData({
+      ...formData,
+      actions: formData.actions.filter((_: any, i: number) => i !== index),
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      return;
+    }
+    onSave(formData);
+  };
+
+  return (
+    <Modal open={true} onClose={onClose} title={automation ? (lang === 'fa' ? 'ویرایش اتوماسیون' : 'Edit Automation') : (lang === 'fa' ? 'اتوماسیون جدید' : 'New Automation')} size="lg">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Input
+          label={lang === 'fa' ? 'نام' : 'Name'}
+          value={formData.name}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+          required
+        />
+
+        <Select
+          label={lang === 'fa' ? 'رویداد راه‌انداز' : 'Trigger Event'}
+          value={formData.trigger_event}
+          onChange={(v) => setFormData({ ...formData, trigger_event: v })}
+          options={[
+            { value: 'ticket.created', label: lang === 'fa' ? 'ایجاد تیکت' : 'Ticket Created' },
+            { value: 'ticket.status_changed', label: lang === 'fa' ? 'تغییر وضعیت تیکت' : 'Ticket Status Changed' },
+            { value: 'ticket.assigned', label: lang === 'fa' ? 'ارجاع تیکت' : 'Ticket Assigned' },
+            { value: 'message.added', label: lang === 'fa' ? 'افزودن پیام' : 'Message Added' },
+          ]}
+        />
+
+        {/* Conditions */}
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            {lang === 'fa' ? 'شرایط' : 'Conditions'}
+          </label>
+          <div className="space-y-2 mb-3">
+            {formData.conditions.map((cond: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 p-2 bg-surface-alt rounded">
+                <Badge variant="info">{cond.field} {cond.operator} {cond.value}</Badge>
+                <Button size="sm" variant="ghost" onClick={() => handleRemoveCondition(i)}>
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Select
+              value={newCondition.field}
+              onChange={(v) => setNewCondition({ ...newCondition, field: v })}
+              options={[
+                { value: '', label: lang === 'fa' ? 'فیلد' : 'Field' },
+                { value: 'priority', label: lang === 'fa' ? 'اولویت' : 'Priority' },
+                { value: 'status', label: lang === 'fa' ? 'وضعیت' : 'Status' },
+                { value: 'subject', label: lang === 'fa' ? 'موضوع' : 'Subject' },
+                { value: 'sender_type', label: lang === 'fa' ? 'نوع فرستنده' : 'Sender Type' },
+              ]}
+            />
+            <Select
+              value={newCondition.operator}
+              onChange={(v) => setNewCondition({ ...newCondition, operator: v })}
+              options={[
+                { value: 'equals', label: '=' },
+                { value: 'contains', label: lang === 'fa' ? 'شامل' : 'Contains' },
+                { value: 'not_equals', label: '!=' },
+              ]}
+            />
+            <Input
+              value={newCondition.value}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCondition({ ...newCondition, value: e.target.value })}
+              placeholder={lang === 'fa' ? 'مقدار' : 'Value'}
+            />
+            <Button type="button" variant="secondary" onClick={handleAddCondition}>
+              +
+            </Button>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            {lang === 'fa' ? 'عملیات' : 'Actions'}
+          </label>
+          <div className="space-y-2 mb-3">
+            {formData.actions.map((action: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 p-2 bg-surface-alt rounded">
+                <Badge variant="brand">{action.type}: {action.value}</Badge>
+                <Button size="sm" variant="ghost" onClick={() => handleRemoveAction(i)}>
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Select
+              value={newAction.type}
+              onChange={(v) => setNewAction({ ...newAction, type: v })}
+              options={[
+                { value: 'set_priority', label: lang === 'fa' ? 'تنظیم اولویت' : 'Set Priority' },
+                { value: 'set_status', label: lang === 'fa' ? 'تنظیم وضعیت' : 'Set Status' },
+                { value: 'assign_team', label: lang === 'fa' ? 'ارجاع به تیم' : 'Assign Team' },
+                { value: 'add_tag', label: lang === 'fa' ? 'افزودن برچسب' : 'Add Tag' },
+              ]}
+            />
+            <Input
+              value={newAction.value}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewAction({ ...newAction, value: e.target.value })}
+              placeholder={lang === 'fa' ? 'مقدار' : 'Value'}
+            />
+            <Button type="button" variant="secondary" onClick={handleAddAction}>
+              +
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-4">
+          <Button type="submit">
+            {automation ? (lang === 'fa' ? 'بروزرسانی' : 'Update') : (lang === 'fa' ? 'ایجاد' : 'Create')}
+          </Button>
+          <Button variant="secondary" type="button" onClick={onClose}>
+            {lang === 'fa' ? 'انصراف' : 'Cancel'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
