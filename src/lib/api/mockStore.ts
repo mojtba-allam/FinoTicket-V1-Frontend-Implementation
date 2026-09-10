@@ -2,7 +2,7 @@
 // This provides in-memory persistence for all API operations with React reactivity
 
 import { mockTickets, mockCustomers, mockMessages, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog } from '../../types';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog, User } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 
 // In-memory store with subscription support
@@ -20,6 +20,75 @@ class MockStore {
   products: Product[] = [...mockProducts];
   topics: Topic[] = [...mockTopics];
   tenants: Tenant[] = [...mockTenants];
+  users: User[] = [
+    // Platform super admin
+    {
+      id: 'u-platform-001',
+      tenant_id: undefined,
+      console: 'platform',
+      email: 'super@fino.local',
+      display_name: 'Super Admin',
+      role: 'PLATFORM_OWNER',
+      presence: 'ONLINE',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-01-01T00:00:00Z',
+    },
+    // Tenant users
+    {
+      id: 'u-001',
+      tenant_id: 'ten-1',
+      console: 'tenant',
+      email: 'admin@finoticket.ir',
+      display_name: 'علی محمدی',
+      role: 'ADMIN',
+      presence: 'ONLINE',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-01-01T00:00:00Z',
+    },
+    {
+      id: 'u-002',
+      tenant_id: 'ten-1',
+      console: 'tenant',
+      email: 'manager@finoticket.ir',
+      display_name: 'فاطمه رضایی',
+      role: 'MANAGER',
+      presence: 'AWAY',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-02-01T00:00:00Z',
+    },
+    {
+      id: 'u-003',
+      tenant_id: 'ten-1',
+      console: 'tenant',
+      email: 'agent@finoticket.ir',
+      display_name: 'حسن نوری',
+      role: 'AGENT',
+      presence: 'BUSY',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-03-01T00:00:00Z',
+    },
+    {
+      id: 'u-004',
+      tenant_id: 'ten-1',
+      console: 'tenant',
+      email: 'viewer@finoticket.ir',
+      display_name: 'مریم حسینی',
+      role: 'VIEWER',
+      presence: 'OFFLINE',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-04-01T00:00:00Z',
+    },
+  ];
   workflows: Workflow[] = [
     {
       id: 'wf-1',
@@ -1101,6 +1170,46 @@ class MockStore {
     return this.updateTenant(id, { status: 'SUSPENDED' });
   }
 
+  // Users
+  getUsers() {
+    return this.users;
+  }
+
+  getUser(id: string) {
+    return this.users.find(u => u.id === id);
+  }
+
+  getUserByEmail(email: string) {
+    return this.users.find(u => u.email === email);
+  }
+
+  inviteUser(user: Partial<User>) {
+    const newUser: User = {
+      id: `u-${Date.now()}`,
+      tenant_id: user.tenant_id || 'ten-1',
+      console: user.console || 'tenant',
+      email: user.email || '',
+      display_name: user.display_name || '',
+      role: user.role || 'VIEWER',
+      presence: 'OFFLINE',
+      timezone: user.timezone || 'Asia/Tehran',
+      language: user.language || 'fa',
+      status: 'INVITED',
+      created_at: new Date().toISOString(),
+    };
+    this.users.push(newUser);
+    this.notify();
+    return newUser;
+  }
+
+  updateUser(id: string, updates: Partial<User>) {
+    const index = this.users.findIndex(u => u.id === id);
+    if (index === -1) return null;
+    this.users[index] = { ...this.users[index], ...updates };
+    this.notify();
+    return this.users[index];
+  }
+
   // Hierarchy helpers
   getDepartmentsByProduct(productId: string) {
     return this.departments.filter(d => d.product_id === productId);
@@ -1327,5 +1436,14 @@ export const api = {
     create: (data: Partial<Tenant>) => mockStore.createTenant(data),
     update: (id: string, data: Partial<Tenant>) => mockStore.updateTenant(id, data),
     suspend: (id: string) => mockStore.suspendTenant(id),
+  },
+
+  // Users
+  users: {
+    list: () => mockStore.getUsers(),
+    get: (id: string) => mockStore.getUser(id),
+    getByEmail: (email: string) => mockStore.getUserByEmail(email),
+    invite: (data: Partial<User>) => mockStore.inviteUser(data),
+    update: (id: string, data: Partial<User>) => mockStore.updateUser(id, data),
   },
 };

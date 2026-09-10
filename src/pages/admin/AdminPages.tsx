@@ -290,44 +290,186 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
 }
 
 export function AdminUsersPage() {
-  const { t, lang } = useApp();
-  const users = [
-    { id: 'u-001', email: 'admin@finoticket.ir', display_name: 'علی محمدی', role: 'ADMIN' as const, status: 'ACTIVE' as const, presence: 'ONLINE' as const, timezone: 'Asia/Tehran', language: 'fa' as const, created_at: '2024-01-01' },
-    { id: 'u-002', email: 'fateme@finoticket.ir', display_name: 'فاطمه رضایی', role: 'AGENT' as const, status: 'ACTIVE' as const, presence: 'AWAY' as const, timezone: 'Asia/Tehran', language: 'fa' as const, created_at: '2024-02-01' },
-    { id: 'u-003', email: 'hasan@finoticket.ir', display_name: 'حسن نوری', role: 'MANAGER' as const, status: 'ACTIVE' as const, presence: 'BUSY' as const, timezone: 'Asia/Tehran', language: 'fa' as const, created_at: '2024-03-01' },
-  ];
+  const { t, lang, showToast } = useApp();
+  useMockStore();
+  
+  const [showInvite, setShowInvite] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [role, setRole] = useState<'OWNER' | 'ADMIN' | 'MANAGER' | 'AGENT' | 'VIEWER'>('VIEWER');
+  const [status, setStatus] = useState<'ACTIVE' | 'INVITED' | 'SUSPENDED'>('INVITED');
+
+  const users = mockStore.getUsers().filter(u => u.console === 'tenant');
+
+  const handleInvite = () => {
+    if (!email.trim() || !displayName.trim()) {
+      showToast(lang === 'fa' ? 'لطفاً تمام فیلدها را پر کنید' : 'Please fill all fields', 'error');
+      return;
+    }
+
+    if (editingUser) {
+      mockStore.updateUser(editingUser.id, { role, status });
+      showToast(lang === 'fa' ? 'کاربر بروزرسانی شد' : 'User updated', 'success');
+    } else {
+      mockStore.inviteUser({
+        email,
+        display_name: displayName,
+        role,
+        status,
+      });
+      showToast(lang === 'fa' ? 'دعوت‌نامه ارسال شد' : 'Invitation sent', 'success');
+    }
+
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setShowInvite(false);
+    setEditingUser(null);
+    setEmail('');
+    setDisplayName('');
+    setRole('VIEWER');
+    setStatus('INVITED');
+  };
+
+  const handleEdit = (user: any) => {
+    setEditingUser(user);
+    setEmail(user.email);
+    setDisplayName(user.display_name);
+    setRole(user.role as any);
+    setStatus(user.status as any);
+    setShowInvite(true);
+  };
+
+  const handleDeactivate = (userId: string) => {
+    mockStore.updateUser(userId, { status: 'SUSPENDED' });
+    showToast(lang === 'fa' ? 'کاربر غیرفعال شد' : 'User deactivated', 'success');
+  };
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.users}</h1>
-      <Card padding={false}>
-        <table className="w-full text-sm">
-          <thead className="bg-surface-alt border-b border-border">
-            <tr>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'کاربر' : 'User'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'ایمیل' : 'Email'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'نقش' : 'Role'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'وضعیت' : 'Status'}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id} className="border-b border-border hover:bg-surface-hover">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-sm font-bold">
-                      {u.display_name.charAt(0)}
-                    </div>
-                    <span className="font-medium">{u.display_name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-text-muted">{u.email}</td>
-                <td className="px-4 py-3"><Badge variant="brand">{u.role}</Badge></td>
-                <td className="px-4 py-3"><Badge variant={u.status === 'ACTIVE' ? 'success' : 'default'}>{u.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : u.status}</Badge></td>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.users}</h1>
+        <Button onClick={() => setShowInvite(true)}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'دعوت کاربر' : 'Invite User'}
+        </Button>
+      </div>
+
+      {users.length === 0 ? (
+        <EmptyState
+          icon={<Users className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'کاربری وجود ندارد' : 'No users'}
+          description={lang === 'fa' ? 'اولین کاربر را دعوت کنید' : 'Invite your first user'}
+          action={
+            <Button onClick={() => setShowInvite(true)}>
+              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'دعوت کاربر' : 'Invite User'}
+            </Button>
+          }
+        />
+      ) : (
+        <Card padding={false}>
+          <table className="w-full text-sm">
+            <thead className="bg-surface-alt border-b border-border">
+              <tr>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'کاربر' : 'User'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'ایمیل' : 'Email'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'نقش' : 'Role'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'وضعیت' : 'Status'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'عملیات' : 'Actions'}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} className="border-b border-border hover:bg-surface-hover">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-sm font-bold">
+                        {u.display_name.charAt(0)}
+                      </div>
+                      <span className="font-medium">{u.display_name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">{u.email}</td>
+                  <td className="px-4 py-3"><Badge variant="brand">{u.role}</Badge></td>
+                  <td className="px-4 py-3">
+                    <Badge variant={u.status === 'ACTIVE' ? 'success' : u.status === 'INVITED' ? 'warning' : 'default'}>
+                      {u.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : 
+                       u.status === 'INVITED' ? (lang === 'fa' ? 'دعوت شده' : 'Invited') : 
+                       (lang === 'fa' ? 'معلق' : 'Suspended')}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => handleEdit(u)}>
+                        {lang === 'fa' ? 'ویرایش' : 'Edit'}
+                      </Button>
+                      {u.status === 'ACTIVE' && (
+                        <Button size="sm" variant="ghost" onClick={() => handleDeactivate(u.id)}>
+                          {lang === 'fa' ? 'غیرفعال' : 'Deactivate'}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Invite/Edit Modal */}
+      {showInvite && (
+        <Modal open={true} onClose={resetForm} title={editingUser ? (lang === 'fa' ? 'ویرایش کاربر' : 'Edit User') : (lang === 'fa' ? 'دعوت کاربر' : 'Invite User')}>
+          <div className="space-y-4">
+            <Input
+              label={lang === 'fa' ? 'ایمیل' : 'Email'}
+              value={email}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+              placeholder="user@example.com"
+              disabled={!!editingUser}
+            />
+            <Input
+              label={lang === 'fa' ? 'نام نمایشی' : 'Display Name'}
+              value={displayName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
+              placeholder={lang === 'fa' ? 'نام کاربر' : 'User name'}
+              disabled={!!editingUser}
+            />
+            <Select
+              label={lang === 'fa' ? 'نقش' : 'Role'}
+              value={role}
+              onChange={(v) => setRole(v as any)}
+              options={[
+                { value: 'OWNER', label: lang === 'fa' ? 'مالک' : 'Owner' },
+                { value: 'ADMIN', label: lang === 'fa' ? 'مدیر' : 'Admin' },
+                { value: 'MANAGER', label: lang === 'fa' ? 'مدیر ارشد' : 'Manager' },
+                { value: 'AGENT', label: lang === 'fa' ? 'کارشناس' : 'Agent' },
+                { value: 'VIEWER', label: lang === 'fa' ? 'مشاهده‌کننده' : 'Viewer' },
+              ]}
+            />
+            {!editingUser && (
+              <Select
+                label={lang === 'fa' ? 'وضعیت' : 'Status'}
+                value={status}
+                onChange={(v) => setStatus(v as any)}
+                options={[
+                  { value: 'INVITED', label: lang === 'fa' ? 'دعوت شده' : 'Invited' },
+                  { value: 'ACTIVE', label: lang === 'fa' ? 'فعال' : 'Active' },
+                ]}
+              />
+            )}
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleInvite}>
+                {editingUser ? (lang === 'fa' ? 'بروزرسانی' : 'Update') : (lang === 'fa' ? 'دعوت' : 'Invite')}
+              </Button>
+              <Button variant="secondary" onClick={resetForm}>
+                {lang === 'fa' ? 'انصراف' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

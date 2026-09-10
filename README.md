@@ -30,7 +30,7 @@ A comprehensive multi-tenant ticket management system with organizational hierar
 
 ## 🔐 Demo Accounts
 
-The application includes two demo accounts for testing the dual dashboard system:
+The application includes multiple demo accounts for testing different roles and permissions:
 
 ### Platform Super Admin
 - **Email**: `super@fino.local`
@@ -41,22 +41,71 @@ The application includes two demo accounts for testing the dual dashboard system
   - Create/suspend/restore tenants
   - Platform-wide settings
   - Audit log access
+  - Impersonate tenant admins
 
-### Tenant Admin
+### Tenant Users
+
+#### Admin (OWNER/ADMIN)
 - **Email**: `admin@finoticket.ir`
 - **Password**: `password` (any password works in demo)
 - **Access**: Tenant desk at `/desk`
 - **Capabilities**:
+  - Full access to all tenant features
   - Manage products, departments, categories, topics
   - Create and manage teams
   - Handle tickets with cascading assignment
   - Customer management
   - Knowledge base management
+  - User management (invite, edit roles)
+
+#### Manager (MANAGER)
+- **Email**: `manager@finoticket.ir`
+- **Password**: `password` (any password works in demo)
+- **Access**: Tenant desk at `/desk`
+- **Capabilities**:
+  - Manage departments, teams, agents
+  - Handle tickets
+  - View reports and analytics
+  - Limited admin access
+
+#### Agent (AGENT)
+- **Email**: `agent@finoticket.ir`
+- **Password**: `password` (any password works in demo)
+- **Access**: Tenant desk at `/desk`
+- **Capabilities**:
+  - Handle assigned tickets
+  - Create tickets
+  - View customers
+  - Use knowledge base
+  - Cannot access admin pages
+
+#### Viewer (VIEWER)
+- **Email**: `viewer@finoticket.ir`
+- **Password**: `password` (any password works in demo)
+- **Access**: Tenant desk at `/desk`
+- **Capabilities**:
+  - Read-only access to tickets
+  - View customers
+  - View knowledge base
+  - Cannot create, edit, or delete anything
+  - Cannot access admin pages
 
 ### Quick Login
-The login page provides quick login buttons for both demo accounts:
+The login page provides quick login buttons for all demo accounts:
 - Click "سوپر ادمین / Super Admin" to login as platform admin
-- Click "ادمین مستأجر / Tenant Admin" to login as tenant admin
+- Click "ادمین / Admin" to login as tenant admin
+- Click "مدیر ارشد / Manager" to login as manager
+- Click "کارشناس / Agent" to login as agent
+- Click "مشاهده‌کننده / Viewer" to login as viewer (read-only)
+
+### Testing RBAC
+To test role-based access control:
+1. Login as `viewer@finoticket.ir`
+2. Try to access `/admin/users` - should be redirected to forbidden
+3. Try to create a ticket - button should be hidden
+4. Login as `agent@finoticket.ir`
+5. Access admin pages - should be restricted
+6. Create tickets - should work
 
 ## 📁 Project Structure
 
