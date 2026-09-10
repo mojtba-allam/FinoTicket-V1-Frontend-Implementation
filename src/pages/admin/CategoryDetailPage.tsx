@@ -67,7 +67,7 @@ export default function CategoryDetailPage() {
 
   const tabs = [
     { id: 'topics', label: lang === 'fa' ? 'موضوعات' : 'Topics', count: topics.length },
-    { id: 'teams', label: lang === 'fa' ? 'تیم‌ها' : 'Teams', count: 0 },
+    { id: 'teams', label: lang === 'fa' ? 'تیم‌ها' : 'Teams', count: categoryTeams.length },
   ];
 
   return (

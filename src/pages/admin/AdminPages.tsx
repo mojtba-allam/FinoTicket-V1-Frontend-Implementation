@@ -8,26 +8,40 @@ import { mockStore, useMockStore } from '../../lib/api/mockStore';
 
 export function AdminDepartmentsPage() {
   const { t, lang } = useApp();
+  const navigate = useNavigate();
+  useMockStore();
+  const departments = mockStore.getDepartments();
+  
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">{t.admin.departments}</h1>
       <div className="grid grid-cols-2 gap-4">
-        {mockDepartments.map(d => (
-          <Card key={d.id}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Building2 className="h-5 w-5 text-brand-500" />
-                <div>
-                  <h3 className="font-medium">{d.name}</h3>
-                  <p className="text-xs text-text-muted font-mono">{d.slug}</p>
+        {departments.map(d => {
+          const product = mockStore.getProduct(d.product_id);
+          return (
+            <div key={d.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/admin/departments/${d.id}`)}>
+              <Card>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Building2 className="h-5 w-5 text-brand-500" />
+                    <div>
+                      <h3 className="font-medium">{d.name}</h3>
+                      <p className="text-xs text-text-muted font-mono">{d.slug}</p>
+                      {product && (
+                        <p className="text-xs text-text-muted mt-1">
+                          {lang === 'fa' ? 'محصول' : 'Product'}: {product.name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Badge variant={d.status === 'ACTIVE' ? 'success' : 'default'}>
+                    {d.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                  </Badge>
                 </div>
-              </div>
-              <Badge variant={d.status === 'ACTIVE' ? 'success' : 'default'}>
-                {d.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-              </Badge>
+              </Card>
             </div>
-          </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

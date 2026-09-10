@@ -66,7 +66,7 @@ export default function DepartmentDetailPage() {
 
   const tabs = [
     { id: 'categories', label: lang === 'fa' ? 'دسته‌بندی‌ها' : 'Categories', count: categories.length },
-    { id: 'teams', label: lang === 'fa' ? 'تیم‌ها' : 'Teams', count: 0 },
+    { id: 'teams', label: lang === 'fa' ? 'تیم‌ها' : 'Teams', count: departmentTeams.length },
   ];
 
   return (
