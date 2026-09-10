@@ -1,5 +1,12 @@
 // FinoTicket V1 - Core Types
 
+// Console types for dual dashboard
+export type ConsoleType = 'platform' | 'tenant';
+
+// Platform roles
+export type PlatformRole = 'PLATFORM_OWNER' | 'PLATFORM_ADMIN';
+
+// Tenant roles (existing)
 export type Role = 'OWNER' | 'ADMIN' | 'MANAGER' | 'AGENT' | 'VIEWER';
 export type Presence = 'ONLINE' | 'AWAY' | 'BUSY' | 'OFFLINE';
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER' | 'WAITING_INTERNAL' | 'RESOLVED' | 'CLOSED';
@@ -24,13 +31,26 @@ export type MessageSender = 'CUSTOMER' | 'AGENT' | 'BOT' | 'SUPERVISOR';
 export type SLAStatus = 'ON_TRACK' | 'WARNING' | 'BREACHED';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'ASSIGN' | 'STATUS_CHANGE';
 
+// Tenant - represents a company/organization
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  status: 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
+  owner_user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface User {
   id: string;
+  tenant_id?: string; // null for platform users
+  console: ConsoleType; // 'platform' or 'tenant'
   email: string;
   mobile?: string;
   display_name: string;
   avatar_url?: string;
-  role: Role;
+  role: Role | PlatformRole; // tenant role or platform role
   presence: Presence;
   timezone: string;
   language: 'fa' | 'en';
@@ -40,6 +60,7 @@ export interface User {
 
 export interface Product {
   id: string;
+  tenant_id: string; // Hierarchy: belongs to tenant
   name: string;
   slug: string;
   status: ProductStatus;
@@ -94,6 +115,7 @@ export interface Address {
 
 export interface Ticket {
   id: string;
+  tenant_id: string; // Hierarchy: belongs to tenant
   ticket_number: string;
   subject: string;
   description?: string;
@@ -103,10 +125,12 @@ export interface Ticket {
   product_name?: string;
   customer_id: string;
   customer_name?: string;
-  category_id?: string;
-  category_name?: string;
   department_id?: string;
   department_name?: string;
+  category_id?: string;
+  category_name?: string;
+  topic_id?: string; // NEW: leaf classification
+  topic_name?: string;
   team_id?: string;
   team_name?: string;
   assignee_id?: string;
@@ -147,8 +171,20 @@ export interface Attachment {
   url: string;
 }
 
+export interface Department {
+  id: string;
+  tenant_id: string; // Hierarchy: belongs to tenant
+  product_id: string; // Hierarchy: belongs to product
+  name: string;
+  slug: string;
+  description?: string;
+  status: EntityStatus;
+}
+
 export interface Category {
   id: string;
+  tenant_id: string; // Hierarchy: belongs to tenant
+  department_id: string; // Hierarchy: belongs to department
   name: string;
   slug: string;
   description?: string;
@@ -158,20 +194,29 @@ export interface Category {
   children?: Category[];
 }
 
-export interface Department {
+// NEW: Topic - leaf classification under category
+export interface Topic {
   id: string;
+  tenant_id: string; // Hierarchy: belongs to tenant
+  category_id: string; // Hierarchy: belongs to category
   name: string;
   slug: string;
   description?: string;
   status: EntityStatus;
+  sort_order: number;
 }
+
+export type TeamScope = 'DEPARTMENT' | 'CATEGORY';
 
 export interface Team {
   id: string;
+  tenant_id: string; // Hierarchy: belongs to tenant
+  product_id: string; // Hierarchy: belongs to product
+  department_id: string; // Hierarchy: belongs to department
+  category_id?: string | null; // Hierarchy: if scope=CATEGORY
+  scope: TeamScope; // DEPARTMENT or CATEGORY scoped
   name: string;
   slug: string;
-  department_id: string;
-  department_name?: string;
   status: EntityStatus;
   members: TeamMember[];
 }
@@ -184,6 +229,7 @@ export interface TeamMember {
 
 export interface Agent {
   id: string;
+  tenant_id: string; // Hierarchy: belongs to tenant
   user_id: string;
   display_name: string;
   avatar_url?: string;
