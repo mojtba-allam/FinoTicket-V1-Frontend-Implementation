@@ -207,6 +207,9 @@ export default function AdminProductDetailPage() {
         <Button variant="secondary" onClick={() => navigate('/admin/products')}>
           {lang === 'fa' ? 'انصراف' : 'Cancel'}
         </Button>
+        <Button variant="primary" onClick={() => navigate(`/admin/products/${id}/departments`)}>
+          {lang === 'fa' ? 'مدیریت دپارتمان‌ها' : 'Manage Departments'}
+        </Button>
       </div>
     </div>
   );
