@@ -44,7 +44,9 @@ export function AdminTeamsPage() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="font-semibold">{team.name}</h3>
-                <p className="text-xs text-text-muted">{team.department_name} • {team.slug}</p>
+                <p className="text-xs text-text-muted">
+                  {team.scope === 'CATEGORY' ? `دسته‌بندی: ${team.category_id || '—'}` : `دپارتمان: ${team.department_id}`} • {team.slug}
+                </p>
               </div>
               <Badge variant={team.status === 'ACTIVE' ? 'success' : 'default'}>
                 {team.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
