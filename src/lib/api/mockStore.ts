@@ -339,6 +339,10 @@ class MockStore {
     return this.departments;
   }
 
+  getDepartment(id: string) {
+    return this.departments.find(d => d.id === id);
+  }
+
   createDepartment(department: Partial<Department>) {
     const newDepartment: Department = {
       id: `d-${Date.now()}`,
