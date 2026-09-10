@@ -173,6 +173,53 @@ class MockStore {
     return result;
   }
 
+  assignCascade(
+    id: string, 
+    data: { 
+      department_id?: string; 
+      department_name?: string;
+      team_id?: string; 
+      team_name?: string;
+      assignee_id?: string; 
+      assignee_name?: string;
+    }
+  ) {
+    const result = this.updateTicket(id, {
+      department_id: data.department_id,
+      department_name: data.department_name,
+      team_id: data.team_id,
+      team_name: data.team_name,
+      assignee_id: data.assignee_id,
+      assignee_name: data.assignee_name,
+    });
+    
+    if (result) {
+      // Add history events for each level of assignment
+      if (data.department_id) {
+        this.addHistoryEvent(id, {
+          type: 'assigned',
+          title: `ارجاع به دپارتمان ${data.department_name || data.department_id}`,
+          actor: 'سیستم',
+        });
+      }
+      if (data.team_id) {
+        this.addHistoryEvent(id, {
+          type: 'assigned',
+          title: `ارجاع به تیم ${data.team_name || data.team_id}`,
+          actor: 'سیستم',
+        });
+      }
+      if (data.assignee_id) {
+        this.addHistoryEvent(id, {
+          type: 'assigned',
+          title: `ارجاع به ${data.assignee_name || data.assignee_id}`,
+          actor: 'سیستم',
+        });
+      }
+    }
+    return result;
+  }
+
   changeTicketStatus(id: string, status: Ticket['status']) {
     const result = this.updateTicket(id, { status });
     if (result) {
