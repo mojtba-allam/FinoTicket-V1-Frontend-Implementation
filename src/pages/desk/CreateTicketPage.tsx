@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Input, Textarea, Select, Card } from '../../components/ui';
+import { Button, Input, Textarea, Select, Card, FileUpload } from '../../components/ui';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { mockCustomers } from '../../data/mock';
 import { useApp } from '../../app/providers';
@@ -23,6 +23,7 @@ export default function CreateTicketPage() {
   const [customer, setCustomer] = useState('');
   const [priority, setPriority] = useState('NORMAL');
   const [errors, setErrors] = useState<{ subject?: string; customer?: string }>({});
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   
   // Cascading classification state
   const [departmentId, setDepartmentId] = useState('');
@@ -97,6 +98,44 @@ export default function CreateTicketPage() {
     setTeamId(tmId);
     setAssigneeId('');
   };
+
+  // File upload validation
+  const handleFileUpload = (files: File[]) => {
+    const MAX_FILES = 5;
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_TYPES = ['image/', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    
+    if (pendingAttachments.length + files.length > MAX_FILES) {
+      showToast(lang === 'fa' ? 'حداکثر ۵ فایل مجاز است' : 'Maximum 5 files allowed', 'error');
+      return;
+    }
+
+    for (const file of files) {
+      if (file.size > MAX_SIZE) {
+        showToast(lang === 'fa' ? `فایل "${file.name}" بزرگتر از ۵ مگابایت است` : `File "${file.name}" exceeds 5MB`, 'error');
+        return;
+      }
+
+      const isValidType = ALLOWED_TYPES.some(type => file.type.startsWith(type));
+      if (!isValidType) {
+        showToast(lang === 'fa' ? `فایل "${file.name}" فرمت معتبری ندارد` : `File "${file.name}" has invalid format`, 'error');
+        return;
+      }
+    }
+
+    setPendingAttachments([...pendingAttachments, ...files]);
+  };
+
+  const removePendingAttachment = (index: number) => {
+    setPendingAttachments(pendingAttachments.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -141,6 +180,13 @@ export default function CreateTicketPage() {
       assignee_id: assigneeId || undefined,
       assignee_name: selectedAgent?.display_name,
       priority: priority as any,
+      attachments: pendingAttachments.map(file => ({
+        id: `att-${Date.now()}-${Math.random()}`,
+        filename: file.name,
+        mime_type: file.type,
+        size: file.size,
+        url: URL.createObjectURL(file),
+      })),
     });
 
     showToast(lang === 'fa' ? 'تیکت با موفقیت ایجاد شد' : 'Ticket created successfully', 'success');
@@ -178,6 +224,34 @@ export default function CreateTicketPage() {
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)} 
             placeholder={lang === 'fa' ? 'توضیحات مشکل یا درخواست...' : 'Describe the issue or request...'} 
           />
+
+          {/* Attachments */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              {lang === 'fa' ? 'پیوست‌ها' : 'Attachments'}
+            </label>
+            
+            {/* Pending attachments list */}
+            {pendingAttachments.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {pendingAttachments.map((file, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 bg-surface-alt rounded-lg text-sm">
+                    <span className="flex-1 truncate">{file.name}</span>
+                    <span className="text-text-muted text-xs">{formatFileSize(file.size)}</span>
+                    <button
+                      type="button"
+                      onClick={() => removePendingAttachment(index)}
+                      className="p-1 hover:bg-surface-hover rounded"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <FileUpload onFiles={handleFileUpload} accept="image/*,.pdf,.doc,.docx" multiple />
+          </div>
           
           <div className="grid grid-cols-2 gap-4">
             <Select 

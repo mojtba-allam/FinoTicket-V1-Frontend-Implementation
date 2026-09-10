@@ -1,7 +1,7 @@
 // Mock Service Worker setup for FinoTicket API
 // This provides in-memory persistence for all API operations with React reactivity
 
-import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
+import { mockTickets, mockCustomers, mockMessages, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
 import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 
@@ -9,7 +9,7 @@ import type { TimelineEvent } from '../../components/Timeline';
 class MockStore {
   tickets: Ticket[] = [...mockTickets];
   customers: Customer[] = [...mockCustomers];
-  messages: Message[] = [];
+  messages: Message[] = [...mockMessages];
   categories: Category[] = [...mockCategories];
   departments: Department[] = [...mockDepartments];
   teams: Team[] = [...mockTeams];
@@ -136,7 +136,7 @@ class MockStore {
     });
   }
 
-  createTicket(ticket: Partial<Ticket>) {
+  createTicket(ticket: Partial<Ticket> & { attachments?: Attachment[] }) {
     const newTicket: Ticket = {
       id: `t-${Date.now()}`,
       tenant_id: ticket.tenant_id || 'ten-1', // Default to demo tenant
@@ -151,6 +151,8 @@ class MockStore {
       customer_name: ticket.customer_name,
       category_id: ticket.category_id,
       category_name: ticket.category_name,
+      topic_id: ticket.topic_id,
+      topic_name: ticket.topic_name,
       department_id: ticket.department_id,
       department_name: ticket.department_name,
       team_id: ticket.team_id,
@@ -167,6 +169,23 @@ class MockStore {
       updated_at: new Date().toISOString(),
     };
     this.tickets.unshift(newTicket);
+
+    // Create initial message with description and attachments if provided
+    if (ticket.description || (ticket.attachments && ticket.attachments.length > 0)) {
+      const initialMessage: Message = {
+        id: `m-${Date.now()}`,
+        ticket_id: newTicket.id,
+        sender_type: 'CUSTOMER',
+        sender_id: ticket.customer_id || '',
+        sender_name: ticket.customer_name || 'Customer',
+        body: ticket.description || '',
+        is_internal: false,
+        channel: newTicket.channel,
+        attachments: ticket.attachments || [],
+        created_at: new Date().toISOString(),
+      };
+      this.messages.push(initialMessage);
+    }
     
     // Add history event
     this.addHistoryEvent(newTicket.id, {
