@@ -8,7 +8,7 @@ import { Timeline, type TimelineEvent } from '../../components/Timeline';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
 import { useCanMutate } from '../../components/ProtectedRoute';
-import { mockAgents, mockTeams, mockDepartments, mockAIAnalyses, mockAISuggestions } from '../../data/mock';
+import { mockAIAnalyses, mockAISuggestions } from '../../data/mock';
 
 export default function TicketDetailPage() {
   const { id } = useParams();
@@ -287,8 +287,9 @@ export default function TicketDetailPage() {
           <h3 className="font-semibold text-sm mb-3">{lang === 'fa' ? 'ویژگی‌ها' : 'Properties'}</h3>
           <div className="space-y-2.5 text-sm">
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'محصول' : 'Product'}</span><span>{ticket.product_name}</span></div>
-            <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'دسته‌بندی' : 'Category'}</span><span>{ticket.category_name || '—'}</span></div>
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'دپارتمان' : 'Department'}</span><span>{ticket.department_name || '—'}</span></div>
+            <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'دسته‌بندی' : 'Category'}</span><span>{ticket.category_name || '—'}</span></div>
+            <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'موضوع' : 'Topic'}</span><span>{ticket.topic_name || '—'}</span></div>
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'تیم' : 'Team'}</span><span>{ticket.team_name || '—'}</span></div>
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'ارجاع به' : 'Assignee'}</span><span>{ticket.assignee_name || '—'}</span></div>
           </div>
@@ -335,7 +336,7 @@ export default function TicketDetailPage() {
             <div className="space-y-2">
               {watchers.length > 0 ? watchers.map(w => (
                 <div key={w} className="flex items-center justify-between p-2 bg-surface-alt rounded">
-                  <span className="text-sm">{mockAgents.find(a => a.user_id === w)?.display_name || w}</span>
+                  <span className="text-sm">{mockStore.getAgents().find(a => a.user_id === w)?.display_name || w}</span>
                   {canMutate && (
                     <button onClick={() => handleRemoveWatcher(w)} className="text-text-muted hover:text-danger-500">
                       <X className="h-4 w-4" />
@@ -345,7 +346,7 @@ export default function TicketDetailPage() {
               )) : <p className="text-xs text-text-muted">{lang === 'fa' ? 'ناظری اضافه نشده' : 'No watchers added'}</p>}
               {canMutate && (
                 <Select 
-                  options={mockAgents.map(a => ({ value: a.user_id, label: a.display_name }))} 
+                  options={mockStore.getAgents().map(a => ({ value: a.user_id, label: a.display_name }))} 
                   placeholder={lang === 'fa' ? 'افزودن ناظر' : 'Add watcher'} 
                   onChange={handleAddWatcher}
                 />

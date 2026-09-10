@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { LayoutDashboard, Building2, Settings, FileSearch, LogOut, Menu, Ticket as TicketIcon } from 'lucide-react';
 import { useApp } from '../app/providers';
 
@@ -8,6 +8,11 @@ export default function PlatformLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Console guard: redirect tenant users to /forbidden
+  if (user.console === 'tenant') {
+    return <Navigate to="/forbidden" replace />;
+  }
 
   const navItems = [
     { id: 'overview', icon: LayoutDashboard, label: lang === 'fa' ? 'نمای کلی' : 'Overview', path: '/platform' },

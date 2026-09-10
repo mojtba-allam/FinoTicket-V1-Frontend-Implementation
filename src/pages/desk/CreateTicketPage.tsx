@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Textarea, Select, Card } from '../../components/ui';
-import { mockStore } from '../../lib/api/mockStore';
-import { mockCustomers, mockCategories, mockDepartments, mockAgents } from '../../data/mock';
+import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockCustomers } from '../../data/mock';
 import { useApp } from '../../app/providers';
 import { useCanMutate } from '../../components/ProtectedRoute';
 
@@ -10,6 +10,7 @@ export default function CreateTicketPage() {
   const { t, lang, showToast, product } = useApp();
   const navigate = useNavigate();
   const canMutate = useCanMutate();
+  useMockStore();
 
   // VIEWER gate - redirect to forbidden
   if (!canMutate) {
@@ -21,9 +22,80 @@ export default function CreateTicketPage() {
   const [description, setDescription] = useState('');
   const [customer, setCustomer] = useState('');
   const [priority, setPriority] = useState('NORMAL');
-  const [category, setCategory] = useState('');
-  const [department, setDepartment] = useState('');
-  const [assignee, setAssignee] = useState('');
+  
+  // Cascading classification state
+  const [departmentId, setDepartmentId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [topicId, setTopicId] = useState('');
+  const [teamId, setTeamId] = useState('');
+  const [assigneeId, setAssigneeId] = useState('');
+
+  // Get departments for current product
+  const departments = useMemo(() => {
+    return mockStore.getDepartmentsByProduct(product.id);
+  }, [product.id]);
+
+  // Get categories for selected department
+  const categories = useMemo(() => {
+    if (!departmentId) return [];
+    return mockStore.getCategoriesByDepartment(departmentId);
+  }, [departmentId]);
+
+  // Get topics for selected category
+  const topics = useMemo(() => {
+    if (!categoryId) return [];
+    return mockStore.getTopicsByCategory(categoryId);
+  }, [categoryId]);
+
+  // Get teams for selected department (and optionally category)
+  const teams = useMemo(() => {
+    if (!departmentId) return [];
+    const deptTeams = mockStore.getTeamsByDepartment(departmentId);
+    if (categoryId) {
+      const categoryTeams = mockStore.getTeamsByCategory(categoryId);
+      // Combine and deduplicate
+      const allTeams = [...deptTeams, ...categoryTeams];
+      return allTeams.filter((team, index, self) => 
+        index === self.findIndex(t => t.id === team.id)
+      );
+    }
+    return deptTeams;
+  }, [departmentId, categoryId]);
+
+  // Get agents for selected team
+  const agents = useMemo(() => {
+    if (!teamId) return [];
+    const team = mockStore.getTeam(teamId);
+    if (!team) return [];
+    return mockStore.getAgents().filter(agent => 
+      team.members.some(member => member.user_id === agent.user_id)
+    );
+  }, [teamId]);
+
+  // Cascade handlers - clear children when parent changes
+  const handleDepartmentChange = (deptId: string) => {
+    setDepartmentId(deptId);
+    setCategoryId('');
+    setTopicId('');
+    setTeamId('');
+    setAssigneeId('');
+  };
+
+  const handleCategoryChange = (catId: string) => {
+    setCategoryId(catId);
+    setTopicId('');
+    setTeamId('');
+    setAssigneeId('');
+  };
+
+  const handleTopicChange = (topId: string) => {
+    setTopicId(topId);
+  };
+
+  const handleTeamChange = (tmId: string) => {
+    setTeamId(tmId);
+    setAssigneeId('');
+  };
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -33,9 +105,11 @@ export default function CreateTicketPage() {
     }
 
     const selectedCustomer = mockCustomers.find(c => c.id === customer);
-    const selectedCategory = mockCategories.find(c => c.id === category);
-    const selectedDepartment = mockDepartments.find(d => d.id === department);
-    const selectedAssignee = mockAgents.find(a => a.user_id === assignee);
+    const selectedDepartment = departmentId ? mockStore.getDepartment(departmentId) : null;
+    const selectedCategory = categoryId ? mockStore.getCategory(categoryId) : null;
+    const selectedTopic = topicId ? mockStore.getTopics().find(t => t.id === topicId) : null;
+    const selectedTeam = teamId ? mockStore.getTeam(teamId) : null;
+    const selectedAgent = assigneeId ? mockStore.getAgents().find(a => a.user_id === assigneeId) : null;
 
     const newTicket = mockStore.createTicket({
       subject,
@@ -44,12 +118,16 @@ export default function CreateTicketPage() {
       product_name: product.name,
       customer_id: customer,
       customer_name: selectedCustomer?.display_name,
-      category_id: category,
-      category_name: selectedCategory?.name,
-      department_id: department,
+      department_id: departmentId || undefined,
       department_name: selectedDepartment?.name,
-      assignee_id: assignee,
-      assignee_name: selectedAssignee?.display_name,
+      category_id: categoryId || undefined,
+      category_name: selectedCategory?.name,
+      topic_id: topicId || undefined,
+      topic_name: selectedTopic?.name,
+      team_id: teamId || undefined,
+      team_name: selectedTeam?.name,
+      assignee_id: assigneeId || undefined,
+      assignee_name: selectedAgent?.display_name,
       priority: priority as any,
     });
 
@@ -102,31 +180,80 @@ export default function CreateTicketPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Select 
-              label={lang === 'fa' ? 'دسته‌بندی' : 'Category'} 
-              options={mockCategories.map(c => ({ value: c.id, label: c.name }))} 
-              value={category} 
-              onChange={setCategory} 
-              placeholder={lang === 'fa' ? 'انتخاب دسته' : 'Select category'} 
-            />
+          {/* Cascading Classification */}
+          <div className="border-t border-border pt-4 mt-4">
+            <h3 className="text-sm font-semibold mb-3">
+              {lang === 'fa' ? 'طبقه‌بندی و ارجاع' : 'Classification & Assignment'}
+            </h3>
             
-            <Select 
-              label={lang === 'fa' ? 'دپارتمان' : 'Department'} 
-              options={mockDepartments.map(d => ({ value: d.id, label: d.name }))} 
-              value={department} 
-              onChange={setDepartment} 
-              placeholder={lang === 'fa' ? 'انتخاب دپارتمان' : 'Select department'} 
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Select 
+                label={lang === 'fa' ? 'دپارتمان' : 'Department'} 
+                options={[
+                  { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+                  ...departments.map(d => ({ value: d.id, label: d.name }))
+                ]} 
+                value={departmentId} 
+                onChange={handleDepartmentChange}
+              />
+              
+              <Select 
+                label={lang === 'fa' ? 'دسته‌بندی' : 'Category'} 
+                options={[
+                  { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+                  ...categories.map(c => ({ value: c.id, label: c.name }))
+                ]} 
+                value={categoryId} 
+                onChange={handleCategoryChange}
+                disabled={!departmentId}
+              />
+            </div>
 
-          <Select 
-            label={lang === 'fa' ? 'ارجاع به' : 'Assign to'} 
-            options={mockAgents.map(a => ({ value: a.user_id, label: a.display_name }))} 
-            value={assignee} 
-            onChange={setAssignee} 
-            placeholder={lang === 'fa' ? 'انتخاب کارشناس' : 'Select agent'} 
-          />
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <Select 
+                label={lang === 'fa' ? 'موضوع' : 'Topic'} 
+                options={[
+                  { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+                  ...topics.map(t => ({ value: t.id, label: t.name }))
+                ]} 
+                value={topicId} 
+                onChange={handleTopicChange}
+                disabled={!categoryId}
+              />
+              
+              <Select 
+                label={lang === 'fa' ? 'تیم (اختیاری)' : 'Team (Optional)'} 
+                options={[
+                  { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+                  ...teams.map(t => ({ 
+                    value: t.id, 
+                    label: `${t.name} (${t.scope === 'DEPARTMENT' ? (lang === 'fa' ? 'دپارتمان' : 'Dept') : (lang === 'fa' ? 'دسته' : 'Cat')})` 
+                  }))
+                ]} 
+                value={teamId} 
+                onChange={handleTeamChange}
+                disabled={!departmentId}
+              />
+            </div>
+
+            <div className="mt-4">
+              <Select 
+                label={lang === 'fa' ? 'کارشناس (اختیاری)' : 'Agent (Optional)'} 
+                options={[
+                  { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+                  ...agents.map(a => ({ value: a.user_id, label: a.display_name }))
+                ]} 
+                value={assigneeId} 
+                onChange={setAssigneeId}
+                disabled={!teamId}
+              />
+              {teamId && agents.length === 0 && (
+                <p className="text-xs text-warning-600 mt-1">
+                  {lang === 'fa' ? 'این تیم هیچ عضوی ندارد' : 'This team has no members'}
+                </p>
+              )}
+            </div>
+          </div>
 
           <div className="flex gap-3 pt-4 border-t border-border">
             <Button type="submit">{t.common.create}</Button>

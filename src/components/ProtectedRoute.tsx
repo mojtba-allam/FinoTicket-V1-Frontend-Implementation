@@ -1,14 +1,15 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useApp } from '../app/providers';
-import type { Role, PlatformRole } from '../types';
+import type { Role, PlatformRole, ConsoleType } from '../types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: (Role | PlatformRole)[];
+  consoleType?: ConsoleType;
 }
 
-export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, allowedRoles, consoleType }: ProtectedRouteProps) {
   const { user } = useApp();
   const location = useLocation();
 
@@ -16,6 +17,16 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   // For now, we assume user is authenticated if they exist
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Console guard - redirect platform users from tenant routes and vice versa
+  if (consoleType) {
+    if (consoleType === 'platform' && user.console !== 'platform') {
+      return <Navigate to="/forbidden" replace />;
+    }
+    if (consoleType === 'tenant' && user.console === 'platform') {
+      return <Navigate to="/platform" replace />;
+    }
   }
 
   // Check role-based access
