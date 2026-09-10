@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { LayoutDashboard, Inbox, Users, Search, BookOpen, BarChart3, LogOut, Menu, Package, Tags, Building2, UserCheck, Shield, Workflow, Zap, Globe, Webhook, FileSearch, Ticket as TicketIcon, Clock } from 'lucide-react';
 import { NotificationCenter } from '../components/NotificationCenter';
 import { PresenceSelect } from '../components/PresenceSelect';
@@ -12,6 +12,11 @@ export default function DeskLayout() {
   const [showProductSwitch, setShowProductSwitch] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Console guard: redirect platform users to /platform
+  if (user.console === 'platform') {
+    return <Navigate to="/platform" replace />;
+  }
 
   const navItems = [
     { id: 'desk', icon: LayoutDashboard, label: t.nav.desk, path: '/desk', roles: ['OWNER', 'ADMIN', 'MANAGER', 'AGENT', 'VIEWER'] },

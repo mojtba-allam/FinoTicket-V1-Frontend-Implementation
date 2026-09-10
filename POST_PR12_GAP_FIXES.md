@@ -50,17 +50,23 @@ This document summarizes all the gap fixes implemented after PR #12 to complete 
 ---
 
 ### 3. ✅ Console Guards on Layouts
-**File**: `src/components/ProtectedRoute.tsx`
+**Files**: 
+- `src/layouts/DeskLayout.tsx`
+- `src/layouts/PlatformLayout.tsx`
 
 **Changes**:
-- Added `consoleType` prop to ProtectedRoute interface
-- Implemented console guard logic:
-  - Platform users (`user.console === 'platform'`) accessing tenant routes → redirect to `/platform`
-  - Tenant users (`user.console === 'tenant'`) accessing platform routes → redirect to `/forbidden`
-- Updated all route definitions in `src/App.tsx`:
-  - All `/desk/*` routes: Added `consoleType="tenant"`
-  - All `/admin/*` routes: Added `consoleType="tenant"`
-  - All `/platform/*` routes: Added `consoleType="platform"`
+- **DeskLayout**: Added console guard to redirect platform users to `/platform`
+  ```tsx
+  if (user.console === 'platform') {
+    return <Navigate to="/platform" replace />;
+  }
+  ```
+- **PlatformLayout**: Added console guard to redirect tenant users to `/forbidden`
+  ```tsx
+  if (user.console === 'tenant') {
+    return <Navigate to="/forbidden" replace />;
+  }
+  ```
 
 **Result**: Complete separation between platform and tenant consoles with proper redirects.
 
@@ -137,9 +143,9 @@ No changes needed.
 
 ```
 ✓ 2025 modules transformed
-✓ Built in 10.60s
+✓ Built in 10.92s
 ✓ No TypeScript errors
-✓ Bundle: 893.54 kB (gzip: 229.86 kB)
+✓ Bundle: 893.69 kB (gzip: 229.87 kB)
 ✓ CSS: 42.36 kB (gzip: 8.30 kB)
 ```
 
@@ -199,8 +205,8 @@ No changes needed.
 
 1. `src/pages/desk/CreateTicketPage.tsx` - Cascading classification
 2. `src/pages/admin/AdminPages.tsx` - Departments index
-3. `src/components/ProtectedRoute.tsx` - Console guards
-4. `src/App.tsx` - Route console types
+3. `src/layouts/DeskLayout.tsx` - Console guard
+4. `src/layouts/PlatformLayout.tsx` - Console guard
 5. `src/pages/admin/DepartmentDetailPage.tsx` - Teams count
 6. `src/pages/admin/CategoryDetailPage.tsx` - Teams count
 7. `src/pages/desk/TicketDetailPage.tsx` - Topic display + cleanup
