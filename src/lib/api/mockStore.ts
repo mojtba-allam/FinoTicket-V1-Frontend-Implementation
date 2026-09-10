@@ -4,6 +4,7 @@
 import { mockTickets, mockCustomers, mockMessages, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
 import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog, User } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
+import type { Notification } from '../../components/NotificationCenter';
 
 // In-memory store with subscription support
 class MockStore {
@@ -155,6 +156,48 @@ class MockStore {
   apiClients: APIClient[] = [...mockAPIClients];
   webhooks: Webhook[] = [...mockWebhooks];
   auditLogs: AuditLog[] = [...mockAuditLogs];
+  notifications: Notification[] = [
+    {
+      id: 'n-1',
+      type: 'sla_breached',
+      title: 'SLA نقض شده',
+      description: 'تیکت FT-1003 بیش از ۲ ساعت از زمان پاسخ اول گذشته',
+      ticket_id: 't-003',
+      ticket_number: 'FT-1003',
+      created_at: '2024-12-20T11:30:00Z',
+      read: false,
+    },
+    {
+      id: 'n-2',
+      type: 'assigned',
+      title: 'تیکت جدید ارجاع شد',
+      description: 'FT-1006 به شما ارجاع شد',
+      ticket_id: 't-006',
+      ticket_number: 'FT-1006',
+      created_at: '2024-12-20T11:00:00Z',
+      read: false,
+    },
+    {
+      id: 'n-3',
+      type: 'message',
+      title: 'پیام جدید از مشتری',
+      description: 'سارا احمدی پیامی در FT-1001 ارسال کرد',
+      ticket_id: 't-001',
+      ticket_number: 'FT-1001',
+      created_at: '2024-12-20T10:45:00Z',
+      read: true,
+    },
+    {
+      id: 'n-4',
+      type: 'sla_warning',
+      title: 'هشدار SLA',
+      description: 'FT-1002 کمتر از ۳۰ دقیقه تا نقض SLA',
+      ticket_id: 't-002',
+      ticket_number: 'FT-1002',
+      created_at: '2024-12-20T10:00:00Z',
+      read: true,
+    },
+  ];
   
   // Append-only history log per ticket
   historyByTicketId: Map<string, TimelineEvent[]> = new Map();
@@ -283,6 +326,18 @@ class MockStore {
         title: `ارجاع به ${assignee_name}`,
         actor: 'سیستم',
       });
+      
+      // Add notification
+      const ticket = this.getTicket(id);
+      if (ticket) {
+        this.addNotification({
+          type: 'assigned',
+          title: 'تیکت ارجاع شد',
+          description: `${ticket.ticket_number} به شما ارجاع شد`,
+          ticket_id: id,
+          ticket_number: ticket.ticket_number,
+        });
+      }
     }
     return result;
   }
@@ -329,6 +384,18 @@ class MockStore {
           title: `ارجاع به ${data.assignee_name || data.assignee_id}`,
           actor: 'سیستم',
         });
+        
+        // Add notification
+        const ticket = this.getTicket(id);
+        if (ticket) {
+          this.addNotification({
+            type: 'assigned',
+            title: 'تیکت ارجاع شد',
+            description: `${ticket.ticket_number} به شما ارجاع شد`,
+            ticket_id: id,
+            ticket_number: ticket.ticket_number,
+          });
+        }
       }
     }
     return result;
@@ -343,6 +410,26 @@ class MockStore {
         description: status,
         actor: 'کارشناس',
       });
+      
+      // Add notification
+      const ticket = this.getTicket(id);
+      if (ticket) {
+        const statusLabels: Record<string, string> = {
+          'OPEN': 'باز',
+          'IN_PROGRESS': 'در حال بررسی',
+          'WAITING_CUSTOMER': 'در انتظار مشتری',
+          'WAITING_INTERNAL': 'در انتظار داخلی',
+          'RESOLVED': 'حل شده',
+          'CLOSED': 'بسته'
+        };
+        this.addNotification({
+          type: 'status_change',
+          title: 'وضعیت تیکت تغییر کرد',
+          description: `${ticket.ticket_number} به وضعیت ${statusLabels[status] || status} تغییر کرد`,
+          ticket_id: id,
+          ticket_number: ticket.ticket_number,
+        });
+      }
     }
     return result;
   }
@@ -427,6 +514,20 @@ class MockStore {
       description: newMessage.body.substring(0, 100) + (newMessage.body.length > 100 ? '...' : ''),
       actor: newMessage.sender_name,
     });
+    
+    // Add notification for public customer messages only
+    if (newMessage.sender_type === 'CUSTOMER' && !newMessage.is_internal) {
+      const ticket = this.getTicket(newMessage.ticket_id);
+      if (ticket) {
+        this.addNotification({
+          type: 'message',
+          title: 'پیام جدید از مشتری',
+          description: `${newMessage.sender_name} پیامی در ${ticket.ticket_number} ارسال کرد`,
+          ticket_id: newMessage.ticket_id,
+          ticket_number: ticket.ticket_number,
+        });
+      }
+    }
     
     this.notify();
     return newMessage;
@@ -1337,11 +1438,45 @@ class MockStore {
 
     // Sort by score descending
     results.sort((a, b) => b.score - a.score);
-
+    
     return results;
   }
-}
 
+  // Notifications
+  getNotifications() {
+    return this.notifications;
+  }
+
+  addNotification(notification: Partial<Notification>) {
+    const newNotification: Notification = {
+      id: `n-${Date.now()}`,
+      type: notification.type || 'message',
+      title: notification.title || '',
+      description: notification.description || '',
+      ticket_id: notification.ticket_id,
+      ticket_number: notification.ticket_number,
+      created_at: new Date().toISOString(),
+      read: false,
+    };
+    this.notifications.unshift(newNotification);
+    this.notify();
+    return newNotification;
+  }
+
+  markNotificationRead(id: string) {
+    const index = this.notifications.findIndex(n => n.id === id);
+    if (index === -1) return null;
+    this.notifications[index] = { ...this.notifications[index], read: true };
+    this.notify();
+    return this.notifications[index];
+  }
+
+  markAllNotificationsRead() {
+    this.notifications = this.notifications.map(n => ({ ...n, read: true }));
+    this.notify();
+    return this.notifications;
+  }
+}
 // Singleton store
 export const mockStore = new MockStore();
 

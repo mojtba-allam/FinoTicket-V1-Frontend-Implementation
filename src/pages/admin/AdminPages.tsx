@@ -1688,6 +1688,8 @@ export function AdminAuditLogsPage() {
   const [actionFilter, setActionFilter] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState('');
   const [actorFilter, setActorFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   
   const logs = mockStore.getAuditLogs();
 
@@ -1699,7 +1701,9 @@ export function AdminAuditLogsPage() {
     const matchesAction = !actionFilter || log.action === actionFilter;
     const matchesEntityType = !entityTypeFilter || log.entity_type === entityTypeFilter;
     const matchesActor = !actorFilter || log.actor_name.toLowerCase().includes(actorFilter.toLowerCase());
-    return matchesSearch && matchesAction && matchesEntityType && matchesActor;
+    const matchesDateFrom = !dateFrom || new Date(log.created_at) >= new Date(dateFrom);
+    const matchesDateTo = !dateTo || new Date(log.created_at) <= new Date(dateTo);
+    return matchesSearch && matchesAction && matchesEntityType && matchesActor && matchesDateFrom && matchesDateTo;
   });
 
   const uniqueEntityTypes = Array.from(new Set(logs.map(log => log.entity_type)));
@@ -1711,7 +1715,7 @@ export function AdminAuditLogsPage() {
 
       {/* Filters */}
       <Card className="mb-6">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <Input
             placeholder={lang === 'fa' ? 'جستجو...' : 'Search...'}
             value={search}
@@ -1737,6 +1741,8 @@ export function AdminAuditLogsPage() {
               ...uniqueEntityTypes.map(type => ({ value: type, label: type })),
             ]}
           />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
           <Select
             value={actorFilter}
             onChange={setActorFilter}
@@ -1745,6 +1751,28 @@ export function AdminAuditLogsPage() {
               ...uniqueActors.map(actor => ({ value: actor, label: actor })),
             ]}
           />
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {lang === 'fa' ? 'از تاریخ' : 'From Date'}
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {lang === 'fa' ? 'تا تاریخ' : 'To Date'}
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            />
+          </div>
         </div>
       </Card>
 
