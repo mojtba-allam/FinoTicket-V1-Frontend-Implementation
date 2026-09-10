@@ -845,27 +845,129 @@ function AutomationFormModal({ automation, onSave, onClose }: { automation: any;
 }
 
 export function AdminKnowledgeBasesPage() {
-  const { t, lang } = useApp();
+  const { t, lang, showToast } = useApp();
+  const navigate = useNavigate();
+  useMockStore();
+  
+  const [showCreate, setShowCreate] = useState(false);
+  const knowledgeBases = mockStore.getKnowledgeBases();
+
+  const handleCreate = (kbData: any) => {
+    mockStore.createKnowledgeBase(kbData);
+    showToast(lang === 'fa' ? 'پایگاه دانش ایجاد شد' : 'Knowledge base created', 'success');
+    setShowCreate(false);
+  };
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.knowledge_bases}</h1>
-      <div className="space-y-4">
-        {mockKnowledgeBases.map(kb => (
-          <Card key={kb.id}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-semibold">{kb.name}</h3>
-                <p className="text-xs text-text-muted">{lang === 'fa' ? 'محدوده' : 'Scope'}: {kb.scope} {kb.product_id ? `• ${lang === 'fa' ? 'محصول' : 'Product'}` : ''}</p>
-              </div>
-              <Badge variant={kb.status === 'ACTIVE' ? 'success' : 'default'}>
-                {kb.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-              </Badge>
-            </div>
-            <p className="text-sm text-text-muted">{kb.articles_count} {lang === 'fa' ? 'مقاله' : 'articles'}</p>
-          </Card>
-        ))}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.knowledge_bases}</h1>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'پایگاه دانش جدید' : 'New Knowledge Base'}
+        </Button>
       </div>
+
+      {knowledgeBases.length === 0 ? (
+        <EmptyState
+          icon={<BookOpen className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'پایگاه دانش وجود ندارد' : 'No knowledge bases'}
+          description={lang === 'fa' ? 'پایگاه دانش جدید ایجاد کنید' : 'Create a new knowledge base'}
+          action={
+            <Button onClick={() => setShowCreate(true)}>
+              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد پایگاه دانش' : 'Create Knowledge Base'}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-4">
+          {knowledgeBases.map(kb => (
+            <Card key={kb.id}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-semibold">{kb.name}</h3>
+                  <p className="text-xs text-text-muted">
+                    {lang === 'fa' ? 'محدوده' : 'Scope'}: {kb.scope} {kb.product_id ? `• ${lang === 'fa' ? 'محصول' : 'Product'}` : ''}
+                  </p>
+                </div>
+                <Badge variant={kb.status === 'ACTIVE' ? 'success' : 'default'}>
+                  {kb.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-text-muted">
+                  {kb.articles_count} {lang === 'fa' ? 'مقاله' : 'articles'}
+                </p>
+                <Button size="sm" variant="secondary" onClick={() => navigate(`/admin/knowledge-bases/${kb.id}/articles`)}>
+                  {lang === 'fa' ? 'مشاهده مقالات' : 'View Articles'}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreate && (
+        <KnowledgeBaseFormModal
+          onSave={handleCreate}
+          onClose={() => setShowCreate(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function KnowledgeBaseFormModal({ onSave, onClose }: { onSave: (data: any) => void; onClose: () => void }) {
+  const { lang } = useApp();
+  const [name, setName] = useState('');
+  const [scope, setScope] = useState<'TENANT' | 'PRODUCT' | 'GLOBAL'>('TENANT');
+  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      return;
+    }
+    onSave({ name, scope, status });
+  };
+
+  return (
+    <Modal open={true} onClose={onClose} title={lang === 'fa' ? 'پایگاه دانش جدید' : 'New Knowledge Base'}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label={lang === 'fa' ? 'نام' : 'Name'}
+          value={name}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+          required
+        />
+        <Select
+          label={lang === 'fa' ? 'محدوده' : 'Scope'}
+          value={scope}
+          onChange={(v) => setScope(v as any)}
+          options={[
+            { value: 'TENANT', label: lang === 'fa' ? 'مستأجر' : 'Tenant' },
+            { value: 'PRODUCT', label: lang === 'fa' ? 'محصول' : 'Product' },
+            { value: 'GLOBAL', label: lang === 'fa' ? 'عمومی' : 'Global' },
+          ]}
+        />
+        <Select
+          label={lang === 'fa' ? 'وضعیت' : 'Status'}
+          value={status}
+          onChange={(v) => setStatus(v as any)}
+          options={[
+            { value: 'ACTIVE', label: lang === 'fa' ? 'فعال' : 'Active' },
+            { value: 'INACTIVE', label: lang === 'fa' ? 'غیرفعال' : 'Inactive' },
+          ]}
+        />
+        <div className="flex gap-3 pt-4">
+          <Button type="submit">{lang === 'fa' ? 'ایجاد' : 'Create'}</Button>
+          <Button variant="secondary" type="button" onClick={onClose}>
+            {lang === 'fa' ? 'انصراف' : 'Cancel'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

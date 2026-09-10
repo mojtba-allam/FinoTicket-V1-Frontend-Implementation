@@ -2,19 +2,20 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { Card, Badge, ErrorState } from '../../components/ui';
-import { mockArticles, mockKnowledgeBases } from '../../data/mock';
+import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
 
 export default function ArticleReaderPage() {
   const { id } = useParams();
   const { t, lang } = useApp();
   const navigate = useNavigate();
+  useMockStore();
   
-  const article = mockArticles.find(a => a.id === id);
+  const article = id ? mockStore.getArticle(id) : null;
 
   if (!article) return <div className="p-6"><ErrorState title={lang === 'fa' ? 'مقاله یافت نشد' : 'Article not found'} /></div>;
 
-  const kb = mockKnowledgeBases.find(k => k.id === article.kb_id);
+  const kb = mockStore.getKnowledgeBase(article.kb_id);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">

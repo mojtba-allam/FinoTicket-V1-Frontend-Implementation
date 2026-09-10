@@ -948,6 +948,108 @@ class MockStore {
     return this.topics[index];
   }
 
+  // Knowledge Bases
+  getKnowledgeBases() {
+    return this.knowledgeBases;
+  }
+
+  getKnowledgeBase(id: string) {
+    return this.knowledgeBases.find(kb => kb.id === id);
+  }
+
+  createKnowledgeBase(kb: Partial<KnowledgeBase>) {
+    const newKB: KnowledgeBase = {
+      id: `kb-${Date.now()}`,
+      name: kb.name || '',
+      scope: kb.scope || 'TENANT',
+      product_id: kb.product_id,
+      status: kb.status || 'ACTIVE',
+      articles_count: 0,
+    };
+    this.knowledgeBases.push(newKB);
+    this.notify();
+    return newKB;
+  }
+
+  updateKnowledgeBase(id: string, updates: Partial<KnowledgeBase>) {
+    const index = this.knowledgeBases.findIndex(kb => kb.id === id);
+    if (index === -1) return null;
+    this.knowledgeBases[index] = { ...this.knowledgeBases[index], ...updates };
+    this.notify();
+    return this.knowledgeBases[index];
+  }
+
+  // Articles
+  getArticles() {
+    return this.articles;
+  }
+
+  getArticle(id: string) {
+    return this.articles.find(a => a.id === id);
+  }
+
+  getArticlesByKB(kbId: string) {
+    return this.articles.filter(a => a.kb_id === kbId);
+  }
+
+  getPublishedArticles() {
+    return this.articles.filter(a => a.status === 'PUBLISHED');
+  }
+
+  createArticle(article: Partial<Article>) {
+    const newArticle: Article = {
+      id: `art-${Date.now()}`,
+      kb_id: article.kb_id || '',
+      title: article.title || '',
+      slug: article.slug || article.title?.toLowerCase().replace(/\s+/g, '-') || '',
+      content: article.content || '',
+      summary: article.summary,
+      status: article.status || 'DRAFT',
+      visibility: article.visibility || 'BOTH',
+      tags: article.tags || [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.articles.push(newArticle);
+    
+    // Update KB articles count
+    const kb = this.getKnowledgeBase(newArticle.kb_id);
+    if (kb) {
+      kb.articles_count++;
+    }
+    
+    this.notify();
+    return newArticle;
+  }
+
+  updateArticle(id: string, updates: Partial<Article>) {
+    const index = this.articles.findIndex(a => a.id === id);
+    if (index === -1) return null;
+    
+    const oldStatus = this.articles[index].status;
+    this.articles[index] = { 
+      ...this.articles[index], 
+      ...updates, 
+      updated_at: new Date().toISOString() 
+    };
+    
+    // Update KB articles count if status changed
+    if (updates.status && updates.status !== oldStatus) {
+      const article = this.articles[index];
+      const kb = this.getKnowledgeBase(article.kb_id);
+      if (kb) {
+        if (updates.status === 'PUBLISHED' && oldStatus !== 'PUBLISHED') {
+          kb.articles_count++;
+        } else if (updates.status !== 'PUBLISHED' && oldStatus === 'PUBLISHED') {
+          kb.articles_count--;
+        }
+      }
+    }
+    
+    this.notify();
+    return this.articles[index];
+  }
+
   // Tenants
   getTenants() {
     return this.tenants;

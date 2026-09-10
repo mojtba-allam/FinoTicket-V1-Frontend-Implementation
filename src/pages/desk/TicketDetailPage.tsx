@@ -529,9 +529,23 @@ export default function TicketDetailPage() {
             ))}
           </div>
 
+          {/* AI Suggestion Banner */}
+          {suggestions.some(s => s.status === 'PENDING') && (
+            <div className="mb-3 p-2 bg-accent-400/10 border border-accent-400/30 rounded-lg">
+              <p className="text-xs text-accent-600 flex items-center gap-1">
+                <Brain className="h-3 w-3" />
+                {lang === 'fa' ? 'پیشنهاد هوش مصنوعی — قبل از ارسال بررسی کنید' : 'AI suggestion — review before send'}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             {suggestions.map(s => (
-              <div key={s.id} className="border border-border rounded-lg p-3">
+              <div key={s.id} className={`border rounded-lg p-3 ${
+                s.status === 'ACCEPTED' ? 'border-success-200 bg-success-50' :
+                s.status === 'REJECTED' ? 'border-danger-200 bg-danger-50 opacity-50' :
+                'border-border'
+              }`}>
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant={s.status === 'ACCEPTED' ? 'success' : s.status === 'REJECTED' ? 'danger' : 'warning'}>
                     {s.status === 'PENDING' 
@@ -543,6 +557,27 @@ export default function TicketDetailPage() {
                   <span className="text-xs text-text-muted">{Math.round(s.confidence * 100)}% {lang === 'fa' ? 'اطمینان' : 'confidence'}</span>
                 </div>
                 <p className="text-xs mb-2 leading-relaxed">{s.content}</p>
+                
+                {/* Source Citations */}
+                {s.sources && s.sources.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-text-muted mb-1">
+                      {lang === 'fa' ? 'منابع:' : 'Sources:'}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {s.sources.map((source, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => navigate(`/desk/knowledge/articles/${source.article_id}`)}
+                          className="text-xs px-2 py-1 bg-brand-50 text-brand-700 rounded hover:bg-brand-100 transition-colors"
+                        >
+                          {source.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {s.status === 'PENDING' && (
                   <div className="flex gap-1">
                     <Button size="sm" variant="success" className="flex-1 text-xs" onClick={() => {
@@ -555,6 +590,13 @@ export default function TicketDetailPage() {
                       showToast(lang === 'fa' ? 'پیشنهاد در پاسخ‌دهنده قرار گرفت' : 'Suggestion inserted into composer', 'success');
                     }}>
                       <CheckCircle2 className="h-3 w-3" /> {lang === 'fa' ? 'قبول' : 'Accept'}
+                    </Button>
+                    <Button size="sm" variant="secondary" className="flex-1 text-xs" onClick={() => {
+                      // Edit mode - insert into composer for editing
+                      setReply(s.content);
+                      showToast(lang === 'fa' ? 'برای ویرایش در پاسخ‌دهنده قرار گرفت' : 'Inserted for editing', 'info');
+                    }}>
+                      {lang === 'fa' ? 'ویرایش' : 'Edit'}
                     </Button>
                     <Button size="sm" variant="danger" className="flex-1 text-xs" onClick={() => {
                       // Update suggestion status
