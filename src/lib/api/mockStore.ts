@@ -889,6 +889,21 @@ class MockStore {
     return this.workflows.find(w => w.id === id);
   }
 
+  createWorkflow(workflow: Partial<Workflow>) {
+    const newWorkflow: Workflow = {
+      id: `wf-${Date.now()}`,
+      name: workflow.name || '',
+      event: workflow.event || 'ticket.created',
+      status: workflow.status || 'DRAFT',
+      version: 1,
+      steps: [],
+      created_at: new Date().toISOString(),
+    };
+    this.workflows.push(newWorkflow);
+    this.notify();
+    return newWorkflow;
+  }
+
   addWorkflowStep(workflowId: string, step: Omit<WorkflowStep, 'id'>) {
     const workflow = this.getWorkflow(workflowId);
     if (!workflow) return null;

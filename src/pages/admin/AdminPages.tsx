@@ -171,6 +171,10 @@ export function AdminAgentsPage() {
                 </Badge>
               </div>
               <div className="space-y-1.5 text-sm text-text-muted">
+                <p className="text-xs">{(() => {
+                  const user = mockStore.getUser(agent.user_id);
+                  return user ? user.email : '';
+                })()}</p>
                 <p>{lang === 'fa' ? 'زمان‌بندی' : 'Timezone'}: {agent.timezone}</p>
                 <p>{lang === 'fa' ? 'حداکثر تیکت فعال' : 'Max active'}: {agent.max_active_tickets}</p>
                 <p>{lang === 'fa' ? 'زبان' : 'Language'}: {agent.language === 'fa' ? 'فارسی' : 'English'}</p>
@@ -210,7 +214,11 @@ export function AdminAgentsPage() {
 
 function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data: any) => void; onClose: () => void }) {
   const { lang } = useApp();
+  useMockStore();
+  const users = mockStore.getUsers().filter(u => u.console === 'tenant' && (u.role === 'AGENT' || u.role === 'ADMIN' || u.role === 'MANAGER'));
+  
   const [formData, setFormData] = useState({
+    user_id: agent?.user_id || '',
     display_name: agent?.display_name || '',
     timezone: agent?.timezone || 'Asia/Tehran',
     language: agent?.language || 'fa',
@@ -219,8 +227,21 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
     status: agent?.status || 'ACTIVE',
   });
 
+  const handleUserSelect = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    setFormData({ 
+      ...formData, 
+      user_id: userId,
+      display_name: user?.display_name || formData.display_name
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.user_id) {
+      alert(lang === 'fa' ? 'لطفاً یک کاربر را انتخاب کنید' : 'Please select a user');
+      return;
+    }
     if (!formData.display_name.trim()) {
       alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
       return;
@@ -231,6 +252,16 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
   return (
     <Modal open={true} onClose={onClose} title={agent ? (lang === 'fa' ? 'ویرایش کارشناس' : 'Edit Agent') : (lang === 'fa' ? 'کارشناس جدید' : 'New Agent')}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        <Select
+          label={lang === 'fa' ? 'کاربر' : 'User'}
+          value={formData.user_id}
+          onChange={handleUserSelect}
+          options={[
+            { value: '', label: lang === 'fa' ? 'انتخاب کاربر' : 'Select user' },
+            ...users.map(u => ({ value: u.id, label: `${u.display_name} (${u.email})` })),
+          ]}
+          required
+        />
         <Input
           label={lang === 'fa' ? 'نام نمایشی' : 'Display Name'}
           value={formData.display_name}
@@ -644,32 +675,109 @@ export function AdminSLAPage() {
 }
 
 export function AdminWorkflowsPage() {
-  const { t, lang } = useApp();
+  const { t, lang, showToast } = useApp();
   const navigate = useNavigate();
   useMockStore();
   const workflows = mockStore.getWorkflows();
+  const [showCreate, setShowCreate] = useState(false);
+  const [workflowName, setWorkflowName] = useState('');
+  const [workflowEvent, setWorkflowEvent] = useState('ticket.created');
+
+  const handleCreate = () => {
+    if (!workflowName.trim()) {
+      showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
+      return;
+    }
+
+    const newWorkflow = mockStore.createWorkflow({
+      name: workflowName,
+      event: workflowEvent,
+      status: 'DRAFT',
+    });
+
+    showToast(lang === 'fa' ? 'جریان کاری ایجاد شد' : 'Workflow created', 'success');
+    setShowCreate(false);
+    setWorkflowName('');
+    setWorkflowEvent('ticket.created');
+    
+    // Navigate to the new workflow detail page
+    navigate(`/admin/workflows/${newWorkflow.id}`);
+  };
   
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.workflows}</h1>
-      <div className="space-y-4">
-        {workflows.map(wf => (
-          <div key={wf.id} onClick={() => navigate(`/admin/workflows/${wf.id}`)} className="cursor-pointer">
-            <Card>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold">{wf.name}</h3>
-                  <p className="text-xs text-text-muted">{lang === 'fa' ? 'رویداد' : 'Event'}: {wf.event} • {lang === 'fa' ? 'نسخه' : 'Version'}: {wf.version}</p>
-                </div>
-                <Badge variant={wf.status === 'ACTIVE' ? 'success' : wf.status === 'DRAFT' ? 'warning' : 'default'}>
-                  {wf.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : wf.status === 'DRAFT' ? (lang === 'fa' ? 'پیش‌نویس' : 'Draft') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-                </Badge>
-              </div>
-              <p className="text-sm text-text-muted">{wf.steps.length} {lang === 'fa' ? 'مرحله' : 'steps'}</p>
-            </Card>
-          </div>
-        ))}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.workflows}</h1>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'جریان کاری جدید' : 'New Workflow'}
+        </Button>
       </div>
+
+      {workflows.length === 0 ? (
+        <EmptyState
+          icon={<Workflow className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'جریان کاری وجود ندارد' : 'No workflows'}
+          description={lang === 'fa' ? 'جریان کاری جدید ایجاد کنید' : 'Create a new workflow'}
+          action={
+            <Button onClick={() => setShowCreate(true)}>
+              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد جریان کاری' : 'Create Workflow'}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-4">
+          {workflows.map(wf => (
+            <div key={wf.id} onClick={() => navigate(`/admin/workflows/${wf.id}`)} className="cursor-pointer">
+              <Card>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold">{wf.name}</h3>
+                    <p className="text-xs text-text-muted">{lang === 'fa' ? 'رویداد' : 'Event'}: {wf.event} • {lang === 'fa' ? 'نسخه' : 'Version'}: {wf.version}</p>
+                  </div>
+                  <Badge variant={wf.status === 'ACTIVE' ? 'success' : wf.status === 'DRAFT' ? 'warning' : 'default'}>
+                    {wf.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : wf.status === 'DRAFT' ? (lang === 'fa' ? 'پیش‌نویس' : 'Draft') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                  </Badge>
+                </div>
+                <p className="text-sm text-text-muted">{wf.steps.length} {lang === 'fa' ? 'مرحله' : 'steps'}</p>
+              </Card>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreate && (
+        <Modal open={true} onClose={() => setShowCreate(false)} title={lang === 'fa' ? 'جریان کاری جدید' : 'New Workflow'}>
+          <div className="space-y-4">
+            <Input
+              label={lang === 'fa' ? 'نام' : 'Name'}
+              value={workflowName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWorkflowName(e.target.value)}
+              placeholder={lang === 'fa' ? 'نام جریان کاری' : 'Workflow name'}
+              required
+            />
+            <Select
+              label={lang === 'fa' ? 'رویداد' : 'Event'}
+              value={workflowEvent}
+              onChange={setWorkflowEvent}
+              options={[
+                { value: 'ticket.created', label: lang === 'fa' ? 'ایجاد تیکت' : 'Ticket Created' },
+                { value: 'ticket.updated', label: lang === 'fa' ? 'بروزرسانی تیکت' : 'Ticket Updated' },
+                { value: 'ticket.assigned', label: lang === 'fa' ? 'ارجاع تیکت' : 'Ticket Assigned' },
+                { value: 'ticket.status_changed', label: lang === 'fa' ? 'تغییر وضعیت تیکت' : 'Ticket Status Changed' },
+              ]}
+            />
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleCreate}>
+                {lang === 'fa' ? 'ایجاد' : 'Create'}
+              </Button>
+              <Button variant="secondary" onClick={() => setShowCreate(false)}>
+                {lang === 'fa' ? 'انصراف' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
