@@ -8,6 +8,8 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 export default function AnalyticsPage() {
   const { t, product, lang } = useApp();
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'custom'>('30d');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(mockAnalytics);
   
@@ -17,8 +19,26 @@ export default function AnalyticsPage() {
   useEffect(() => {
     setLoading(true);
     const timer = setTimeout(() => {
-      // Generate different data based on date range
-      const multiplier = dateRange === '7d' ? 0.3 : dateRange === '30d' ? 1 : 2;
+      let filteredTickets = mockAnalytics.tickets_over_time;
+      let multiplier = 1;
+
+      if (dateRange === '7d') {
+        filteredTickets = mockAnalytics.tickets_over_time.slice(-7);
+        multiplier = 0.3;
+      } else if (dateRange === '30d') {
+        filteredTickets = mockAnalytics.tickets_over_time.slice(-30);
+        multiplier = 1;
+      } else if (dateRange === 'custom' && customFrom && customTo) {
+        const from = new Date(customFrom);
+        const to = new Date(customTo);
+        filteredTickets = mockAnalytics.tickets_over_time.filter(item => {
+          const itemDate = new Date(item.date);
+          return itemDate >= from && itemDate <= to;
+        });
+        // Calculate multiplier based on date range length
+        const days = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+        multiplier = Math.min(days / 30, 3);
+      }
       
       setData({
         ...mockAnalytics,
@@ -32,9 +52,7 @@ export default function AnalyticsPage() {
           avg_resolution: mockAnalytics.kpis.avg_resolution,
           satisfaction: mockAnalytics.kpis.satisfaction,
         },
-        tickets_over_time: mockAnalytics.tickets_over_time.slice(
-          dateRange === '7d' ? -7 : dateRange === '30d' ? -30 : 0
-        ).map(item => ({
+        tickets_over_time: filteredTickets.map(item => ({
           ...item,
           created: Math.round(item.created * multiplier),
           resolved: Math.round(item.resolved * multiplier),
@@ -44,7 +62,7 @@ export default function AnalyticsPage() {
     }, 300);
     
     return () => clearTimeout(timer);
-  }, [dateRange]);
+  }, [dateRange, customFrom, customTo]);
 
   return (
     <div className="p-6">
@@ -63,6 +81,41 @@ export default function AnalyticsPage() {
           <span className="text-sm px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 font-medium">{product.name}</span>
         </div>
       </div>
+
+      {/* Custom Date Range Inputs */}
+      {dateRange === 'custom' && (
+        <Card className="mb-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                {lang === 'fa' ? 'از تاریخ' : 'From Date'}
+              </label>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                {lang === 'fa' ? 'تا تاریخ' : 'To Date'}
+              </label>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              />
+            </div>
+          </div>
+          {(!customFrom || !customTo) && (
+            <p className="text-sm text-warning-600 mt-3">
+              {lang === 'fa' ? 'لطفاً هر دو تاریخ را انتخاب کنید' : 'Please select both dates'}
+            </p>
+          )}
+        </Card>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">

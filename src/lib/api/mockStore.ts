@@ -1,8 +1,8 @@
 // Mock Service Worker setup for FinoTicket API
 // This provides in-memory persistence for all API operations with React reactivity
 
-import { mockTickets, mockCustomers, mockMessages, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog, User } from '../../types';
+import { mockTickets, mockCustomers, mockMessages, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs, mockAISuggestions } from '../../data/mock';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog, User, AISuggestion } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 import type { Notification } from '../../components/NotificationCenter';
 
@@ -21,6 +21,7 @@ class MockStore {
   products: Product[] = [...mockProducts];
   topics: Topic[] = [...mockTopics];
   tenants: Tenant[] = [...mockTenants];
+  aiSuggestions: AISuggestion[] = [...mockAISuggestions];
   users: User[] = [
     // Platform super admin
     {
@@ -1491,6 +1492,19 @@ class MockStore {
     this.notify();
     return this.notifications;
   }
+
+  // AI Suggestions
+  getSuggestionsForTicket(ticketId: string) {
+    return this.aiSuggestions.filter(s => s.ticket_id === ticketId);
+  }
+
+  updateSuggestionStatus(id: string, status: AISuggestion['status']) {
+    const index = this.aiSuggestions.findIndex(s => s.id === id);
+    if (index === -1) return null;
+    this.aiSuggestions[index] = { ...this.aiSuggestions[index], status };
+    this.notify();
+    return this.aiSuggestions[index];
+  }
 }
 // Singleton store
 export const mockStore = new MockStore();
@@ -1595,5 +1609,11 @@ export const api = {
     getByEmail: (email: string) => mockStore.getUserByEmail(email),
     invite: (data: Partial<User>) => mockStore.inviteUser(data),
     update: (id: string, data: Partial<User>) => mockStore.updateUser(id, data),
+  },
+
+  // AI Suggestions
+  aiSuggestions: {
+    listByTicket: (ticketId: string) => mockStore.getSuggestionsForTicket(ticketId),
+    updateStatus: (id: string, status: AISuggestion['status']) => mockStore.updateSuggestionStatus(id, status),
   },
 };

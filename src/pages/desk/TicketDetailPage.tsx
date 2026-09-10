@@ -8,7 +8,7 @@ import { Timeline, type TimelineEvent } from '../../components/Timeline';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
 import { useCanMutate } from '../../components/ProtectedRoute';
-import { mockAIAnalyses, mockAISuggestions } from '../../data/mock';
+import { mockAIAnalyses } from '../../data/mock';
 
 export default function TicketDetailPage() {
   const { id } = useParams();
@@ -36,7 +36,7 @@ export default function TicketDetailPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [tags, setTags] = useState<string[]>(ticket?.tags || []);
   const [watchers, setWatchers] = useState<string[]>(ticket?.watchers || []);
-  const [suggestions, setSuggestions] = useState(mockAISuggestions.filter(s => s.ticket_id === id));
+  const suggestions = mockStore.getSuggestionsForTicket(id || '');
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   const [previewAttachment, setPreviewAttachment] = useState<{ url: string; filename: string; type: string } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -650,10 +650,8 @@ export default function TicketDetailPage() {
                     <Button size="sm" variant="success" className="flex-1 text-xs" onClick={() => {
                       // Insert suggestion into composer
                       setReply(s.content);
-                      // Update suggestion status
-                      setSuggestions(prev => prev.map(sug => 
-                        sug.id === s.id ? { ...sug, status: 'ACCEPTED' as const } : sug
-                      ));
+                      // Update suggestion status in store
+                      mockStore.updateSuggestionStatus(s.id, 'ACCEPTED');
                       showToast(lang === 'fa' ? 'پیشنهاد در پاسخ‌دهنده قرار گرفت' : 'Suggestion inserted into composer', 'success');
                     }}>
                       <CheckCircle2 className="h-3 w-3" /> {lang === 'fa' ? 'قبول' : 'Accept'}
@@ -666,10 +664,8 @@ export default function TicketDetailPage() {
                       {lang === 'fa' ? 'ویرایش' : 'Edit'}
                     </Button>
                     <Button size="sm" variant="danger" className="flex-1 text-xs" onClick={() => {
-                      // Update suggestion status
-                      setSuggestions(prev => prev.map(sug => 
-                        sug.id === s.id ? { ...sug, status: 'REJECTED' as const } : sug
-                      ));
+                      // Update suggestion status in store
+                      mockStore.updateSuggestionStatus(s.id, 'REJECTED');
                       showToast(lang === 'fa' ? 'پیشنهاد رد شد' : 'Suggestion rejected', 'info');
                     }}>
                       <XCircle className="h-3 w-3" /> {lang === 'fa' ? 'رد' : 'Reject'}
