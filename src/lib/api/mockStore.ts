@@ -1,8 +1,8 @@
 // Mock Service Worker setup for FinoTicket API
 // This provides in-memory persistence for all API operations with React reactivity
 
-import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation } from '../../types';
+import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 
 // In-memory store with subscription support
@@ -83,6 +83,9 @@ class MockStore {
       created_at: '2024-01-12T10:30:00Z',
     },
   ];
+  apiClients: APIClient[] = [...mockAPIClients];
+  webhooks: Webhook[] = [...mockWebhooks];
+  auditLogs: AuditLog[] = [...mockAuditLogs];
   
   // Append-only history log per ticket
   historyByTicketId: Map<string, TimelineEvent[]> = new Map();
@@ -795,6 +798,121 @@ class MockStore {
     this.automations[index] = { ...this.automations[index], ...updates };
     this.notify();
     return this.automations[index];
+  }
+
+  // API Clients
+  getAPIClients() {
+    return this.apiClients;
+  }
+
+  getAPIClient(id: string) {
+    return this.apiClients.find(c => c.id === id);
+  }
+
+  createAPIClient(client: Partial<APIClient>) {
+    const newClient: APIClient = {
+      id: `client-${Date.now()}`,
+      name: client.name || '',
+      client_id: `cli_${Math.random().toString(36).substring(2, 15)}`,
+      client_secret: `sec_${Math.random().toString(36).substring(2, 30)}`,
+      scopes: client.scopes || [],
+      status: 'ACTIVE',
+      created_at: new Date().toISOString(),
+    };
+    this.apiClients.push(newClient);
+    this.notify();
+    return newClient;
+  }
+
+  updateAPIClient(id: string, updates: Partial<APIClient>) {
+    const index = this.apiClients.findIndex(c => c.id === id);
+    if (index === -1) return null;
+    this.apiClients[index] = { ...this.apiClients[index], ...updates };
+    this.notify();
+    return this.apiClients[index];
+  }
+
+  rotateAPIClientSecret(id: string) {
+    const client = this.getAPIClient(id);
+    if (!client) return null;
+    const newSecret = `sec_${Math.random().toString(36).substring(2, 30)}`;
+    this.apiClients = this.apiClients.map(c => 
+      c.id === id ? { ...c, client_secret: newSecret } : c
+    );
+    this.notify();
+    return newSecret;
+  }
+
+  // Webhooks
+  getWebhooks() {
+    return this.webhooks;
+  }
+
+  getWebhook(id: string) {
+    return this.webhooks.find(w => w.id === id);
+  }
+
+  createWebhook(webhook: Partial<Webhook>) {
+    const newWebhook: Webhook = {
+      id: `wh-${Date.now()}`,
+      name: webhook.name || '',
+      url: webhook.url || '',
+      events: webhook.events || [],
+      status: webhook.status || 'ACTIVE',
+      deliveries: [],
+      created_at: new Date().toISOString(),
+    };
+    this.webhooks.push(newWebhook);
+    this.notify();
+    return newWebhook;
+  }
+
+  updateWebhook(id: string, updates: Partial<Webhook>) {
+    const index = this.webhooks.findIndex(w => w.id === id);
+    if (index === -1) return null;
+    this.webhooks[index] = { ...this.webhooks[index], ...updates };
+    this.notify();
+    return this.webhooks[index];
+  }
+
+  addWebhookDelivery(webhookId: string, delivery: any) {
+    const webhook = this.getWebhook(webhookId);
+    if (!webhook) return null;
+    const newDelivery = {
+      id: `del-${Date.now()}`,
+      webhook_id: webhookId,
+      event: delivery.event,
+      status: delivery.status,
+      attempts: delivery.attempts || 1,
+      response_code: delivery.response_code,
+      response_body: delivery.response_body,
+      created_at: new Date().toISOString(),
+    };
+    webhook.deliveries.unshift(newDelivery);
+    this.notify();
+    return newDelivery;
+  }
+
+  // Audit Logs
+  getAuditLogs() {
+    return this.auditLogs;
+  }
+
+  addAuditLog(log: Partial<AuditLog>) {
+    const newLog: AuditLog = {
+      id: `log-${Date.now()}`,
+      actor_id: log.actor_id || 'u-001',
+      actor_name: log.actor_name || 'Unknown',
+      action: log.action || 'CREATE',
+      entity_type: log.entity_type || '',
+      entity_id: log.entity_id || '',
+      metadata: log.metadata || {},
+      ip_address: log.ip_address || '127.0.0.1',
+      created_at: new Date().toISOString(),
+    };
+    this.auditLogs.unshift(newLog);
+    this.notify();
+    return newLog;
   }
 
   // Topics

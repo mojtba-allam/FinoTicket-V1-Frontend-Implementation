@@ -870,72 +870,556 @@ export function AdminKnowledgeBasesPage() {
 }
 
 export function AdminAPIClientsPage() {
-  const { t, lang } = useApp();
+  const { t, lang, showToast } = useApp();
+  useMockStore();
+  
+  const [showCreate, setShowCreate] = useState(false);
+  const [showSecret, setShowSecret] = useState<string | null>(null);
+  const [editingClient, setEditingClient] = useState<any>(null);
+  
+  const clients = mockStore.getAPIClients();
+
+  const handleCreate = () => {
+    setEditingClient(null);
+    setShowCreate(true);
+  };
+
+  const handleSave = (clientData: any) => {
+    if (editingClient) {
+      mockStore.updateAPIClient(editingClient.id, clientData);
+      showToast(lang === 'fa' ? 'کلاینت بروزرسانی شد' : 'Client updated', 'success');
+    } else {
+      const newClient = mockStore.createAPIClient(clientData);
+      setShowSecret(newClient.client_secret!);
+      showToast(lang === 'fa' ? 'کلاینت ایجاد شد' : 'Client created', 'success');
+    }
+    setShowCreate(false);
+    setEditingClient(null);
+  };
+
+  const handleRotateSecret = (clientId: string) => {
+    const newSecret = mockStore.rotateAPIClientSecret(clientId);
+    if (newSecret) {
+      setShowSecret(newSecret);
+      showToast(lang === 'fa' ? 'رمز چرخانده شد' : 'Secret rotated', 'success');
+    }
+  };
+
+  const handleToggleStatus = (clientId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'ACTIVE' ? 'REVOKED' : 'ACTIVE';
+    mockStore.updateAPIClient(clientId, { status: newStatus });
+    showToast(
+      newStatus === 'ACTIVE' 
+        ? (lang === 'fa' ? 'کلاینت فعال شد' : 'Client activated')
+        : (lang === 'fa' ? 'کلاینت غیرفعال شد' : 'Client revoked'),
+      'success'
+    );
+  };
+
+  const availableScopes = [
+    'tickets:read',
+    'tickets:write',
+    'customers:read',
+    'customers:write',
+    'events:write',
+    'knowledge:read',
+    'analytics:read',
+  ];
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.api_clients}</h1>
-      <div className="space-y-4">
-        {mockAPIClients.map(client => (
-          <Card key={client.id}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-semibold">{client.name}</h3>
-                <p className="text-xs font-mono text-text-muted">ID: {client.client_id}</p>
-              </div>
-              <Badge variant={client.status === 'ACTIVE' ? 'success' : 'danger'}>{client.status}</Badge>
-            </div>
-            <div className="flex flex-wrap gap-1 mb-2">
-              {client.scopes.map(s => <Badge key={s} variant="info">{s}</Badge>)}
-            </div>
-            <p className="text-xs text-text-muted">{lang === 'fa' ? 'آخرین استفاده' : 'Last used'}: {client.last_used_at ? new Date(client.last_used_at).toLocaleString(lang === 'fa' ? 'fa-IR' : 'en-US') : '—'}</p>
-          </Card>
-        ))}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.api_clients}</h1>
+        <Button onClick={handleCreate}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'کلاینت جدید' : 'New Client'}
+        </Button>
       </div>
+
+      {clients.length === 0 ? (
+        <EmptyState
+          icon={<Globe className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'کلاینت API وجود ندارد' : 'No API clients'}
+          description={lang === 'fa' ? 'کلاینت جدید ایجاد کنید' : 'Create a new client'}
+          action={
+            <Button onClick={handleCreate}>
+              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد کلاینت' : 'Create Client'}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-4">
+          {clients.map(client => (
+            <Card key={client.id}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-semibold">{client.name}</h3>
+                  <p className="text-xs font-mono text-text-muted">ID: {client.client_id}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={client.status === 'ACTIVE' ? 'success' : 'danger'}>
+                    {client.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Revoked')}
+                  </Badge>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => handleToggleStatus(client.id, client.status)}
+                  >
+                    {client.status === 'ACTIVE' 
+                      ? (lang === 'fa' ? 'غیرفعال' : 'Revoke')
+                      : (lang === 'fa' ? 'فعال' : 'Activate')}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1 mb-3">
+                {client.scopes.map(s => <Badge key={s} variant="info">{s}</Badge>)}
+              </div>
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span>{lang === 'fa' ? 'آخرین استفاده' : 'Last used'}: {client.last_used_at ? new Date(client.last_used_at).toLocaleString(lang === 'fa' ? 'fa-IR' : 'en-US') : '—'}</span>
+                <Button size="sm" variant="ghost" onClick={() => handleRotateSecret(client.id)}>
+                  {lang === 'fa' ? 'چرخاندن رمز' : 'Rotate Secret'}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      {showCreate && (
+        <APIClientFormModal
+          client={editingClient}
+          scopes={availableScopes}
+          onSave={handleSave}
+          onClose={() => {
+            setShowCreate(false);
+            setEditingClient(null);
+          }}
+        />
+      )}
+
+      {/* Secret Reveal Modal */}
+      {showSecret && (
+        <Modal open={true} onClose={() => setShowSecret(null)} title={lang === 'fa' ? 'رمز کلاینت' : 'Client Secret'}>
+          <div className="space-y-4">
+            <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
+              <p className="text-sm font-medium text-warning-800 mb-2">
+                {lang === 'fa' ? '⚠️ این رمز فقط یک‌بار نمایش داده می‌شود' : '⚠️ This secret is shown only once'}
+              </p>
+              <div className="flex items-center gap-2 p-3 bg-white rounded border border-border">
+                <code className="flex-1 text-sm font-mono break-all">{showSecret}</code>
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  onClick={() => {
+                    navigator.clipboard.writeText(showSecret);
+                    showToast(lang === 'fa' ? 'کپی شد' : 'Copied', 'success');
+                  }}
+                >
+                  {lang === 'fa' ? 'کپی' : 'Copy'}
+                </Button>
+              </div>
+            </div>
+            <Button onClick={() => setShowSecret(null)} className="w-full">
+              {lang === 'fa' ? 'بستن' : 'Close'}
+            </Button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
+function APIClientFormModal({ client, scopes, onSave, onClose }: { client: any; scopes: string[]; onSave: (data: any) => void; onClose: () => void }) {
+  const { lang } = useApp();
+  const [formData, setFormData] = useState({
+    name: client?.name || '',
+    scopes: client?.scopes || [],
+  });
+
+  const handleToggleScope = (scope: string) => {
+    setFormData({
+      ...formData,
+      scopes: formData.scopes.includes(scope)
+        ? formData.scopes.filter((s: string) => s !== scope)
+        : [...formData.scopes, scope],
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      return;
+    }
+    if (formData.scopes.length === 0) {
+      alert(lang === 'fa' ? 'لطفاً حداقل یک دسترسی انتخاب کنید' : 'Please select at least one scope');
+      return;
+    }
+    onSave(formData);
+  };
+
+  return (
+    <Modal open={true} onClose={onClose} title={client ? (lang === 'fa' ? 'ویرایش کلاینت' : 'Edit Client') : (lang === 'fa' ? 'کلاینت جدید' : 'New Client')}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label={lang === 'fa' ? 'نام' : 'Name'}
+          value={formData.name}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+          required
+        />
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            {lang === 'fa' ? 'دسترسی‌ها' : 'Scopes'}
+          </label>
+          <div className="space-y-2">
+            {scopes.map(scope => (
+              <label key={scope} className="flex items-center gap-2 p-2 bg-surface-alt rounded cursor-pointer hover:bg-surface-hover">
+                <input
+                  type="checkbox"
+                  checked={formData.scopes.includes(scope)}
+                  onChange={() => handleToggleScope(scope)}
+                  className="rounded"
+                />
+                <span className="text-sm font-mono">{scope}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-3 pt-4">
+          <Button type="submit">
+            {client ? (lang === 'fa' ? 'بروزرسانی' : 'Update') : (lang === 'fa' ? 'ایجاد' : 'Create')}
+          </Button>
+          <Button variant="secondary" type="button" onClick={onClose}>
+            {lang === 'fa' ? 'انصراف' : 'Cancel'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export function AdminWebhooksPage() {
-  const { t, lang } = useApp();
+  const { t, lang, showToast } = useApp();
+  useMockStore();
+  
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingWebhook, setEditingWebhook] = useState<any>(null);
+  const [showDeliveries, setShowDeliveries] = useState<string | null>(null);
+  
+  const webhooks = mockStore.getWebhooks();
+
+  const handleCreate = () => {
+    setEditingWebhook(null);
+    setShowCreate(true);
+  };
+
+  const handleEdit = (webhook: any) => {
+    setEditingWebhook(webhook);
+    setShowCreate(true);
+  };
+
+  const handleSave = (webhookData: any) => {
+    if (editingWebhook) {
+      mockStore.updateWebhook(editingWebhook.id, webhookData);
+      showToast(lang === 'fa' ? 'وبهوک بروزرسانی شد' : 'Webhook updated', 'success');
+    } else {
+      mockStore.createWebhook(webhookData);
+      showToast(lang === 'fa' ? 'وبهوک ایجاد شد' : 'Webhook created', 'success');
+    }
+    setShowCreate(false);
+    setEditingWebhook(null);
+  };
+
+  const handleTestDelivery = (webhookId: string) => {
+    const webhook = mockStore.getWebhook(webhookId);
+    if (!webhook || webhook.events.length === 0) {
+      showToast(lang === 'fa' ? 'رویدادی برای ارسال وجود ندارد' : 'No events to send', 'error');
+      return;
+    }
+
+    const event = webhook.events[0];
+    const success = Math.random() > 0.3; // 70% success rate
+    
+    mockStore.addWebhookDelivery(webhookId, {
+      event,
+      status: success ? 'DELIVERED' : 'FAILED',
+      attempts: 1,
+      response_code: success ? 200 : 500,
+      response_body: success 
+        ? '{"status":"ok"}'
+        : '{"error":"Internal server error"}',
+    });
+
+    showToast(
+      success 
+        ? (lang === 'fa' ? 'ارسال موفق' : 'Delivery successful')
+        : (lang === 'fa' ? 'ارسال ناموفق' : 'Delivery failed'),
+      success ? 'success' : 'error'
+    );
+  };
+
+  const handleToggleStatus = (webhookId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    mockStore.updateWebhook(webhookId, { status: newStatus });
+    showToast(
+      newStatus === 'ACTIVE' 
+        ? (lang === 'fa' ? 'وبهوک فعال شد' : 'Webhook activated')
+        : (lang === 'fa' ? 'وبهوک غیرفعال شد' : 'Webhook deactivated'),
+      'success'
+    );
+  };
+
+  const availableEvents = [
+    'ticket.created',
+    'ticket.updated',
+    'ticket.assigned',
+    'ticket.status_changed',
+    'ticket.message_added',
+    'ticket.resolved',
+    'ticket.closed',
+    'customer.created',
+    'customer.updated',
+    'sla.warning',
+    'sla.breached',
+  ];
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.webhooks}</h1>
-      <div className="space-y-4">
-        {mockWebhooks.map(wh => (
-          <Card key={wh.id}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-semibold">{wh.name}</h3>
-                <p className="text-xs font-mono text-text-muted">{wh.url}</p>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.webhooks}</h1>
+        <Button onClick={handleCreate}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'وبهوک جدید' : 'New Webhook'}
+        </Button>
+      </div>
+
+      {webhooks.length === 0 ? (
+        <EmptyState
+          icon={<Webhook className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'وبهوک وجود ندارد' : 'No webhooks'}
+          description={lang === 'fa' ? 'وبهوک جدید ایجاد کنید' : 'Create a new webhook'}
+          action={
+            <Button onClick={handleCreate}>
+              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد وبهوک' : 'Create Webhook'}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-4">
+          {webhooks.map(wh => (
+            <Card key={wh.id}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="font-semibold">{wh.name}</h3>
+                  <p className="text-xs font-mono text-text-muted">{wh.url}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={wh.status === 'ACTIVE' ? 'success' : 'default'}>
+                    {wh.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                  </Badge>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => handleToggleStatus(wh.id, wh.status)}
+                  >
+                    {wh.status === 'ACTIVE' 
+                      ? (lang === 'fa' ? 'غیرفعال' : 'Deactivate')
+                      : (lang === 'fa' ? 'فعال' : 'Activate')}
+                  </Button>
+                </div>
               </div>
-              <Badge variant={wh.status === 'ACTIVE' ? 'success' : 'default'}>
-                {wh.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-              </Badge>
-            </div>
-            <div className="flex flex-wrap gap-1 mb-3">
-              {wh.events.map(e => <Badge key={e} variant="info">{e}</Badge>)}
-            </div>
-            <div className="border-t border-border pt-3">
-              <p className="text-xs font-medium text-text-muted mb-2">{lang === 'fa' ? 'آخرین ارسال‌ها' : 'Recent deliveries'}:</p>
-              <div className="space-y-1.5">
-                {wh.deliveries.map(d => (
-                  <div key={d.id} className="flex items-center justify-between text-xs p-2 bg-surface-alt rounded">
+              <div className="flex flex-wrap gap-1 mb-3">
+                {wh.events.map(e => <Badge key={e} variant="info">{e}</Badge>)}
+              </div>
+              <div className="flex items-center justify-between text-xs text-text-muted mb-3">
+                <span>{wh.deliveries.length} {lang === 'fa' ? 'ارسال' : 'deliveries'}</span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => handleTestDelivery(wh.id)}>
+                    {lang === 'fa' ? 'ارسال آزمایشی' : 'Test Delivery'}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleEdit(wh)}>
+                    {lang === 'fa' ? 'ویرایش' : 'Edit'}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowDeliveries(wh.id)}>
+                    {lang === 'fa' ? 'گزارش ارسال‌ها' : 'View Deliveries'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      {showCreate && (
+        <WebhookFormModal
+          webhook={editingWebhook}
+          events={availableEvents}
+          onSave={handleSave}
+          onClose={() => {
+            setShowCreate(false);
+            setEditingWebhook(null);
+          }}
+        />
+      )}
+
+      {/* Deliveries Drawer */}
+      {showDeliveries && (
+        <WebhookDeliveriesDrawer
+          webhookId={showDeliveries}
+          onClose={() => setShowDeliveries(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function WebhookFormModal({ webhook, events, onSave, onClose }: { webhook: any; events: string[]; onSave: (data: any) => void; onClose: () => void }) {
+  const { lang } = useApp();
+  const [formData, setFormData] = useState({
+    name: webhook?.name || '',
+    url: webhook?.url || '',
+    events: webhook?.events || [],
+    status: webhook?.status || 'ACTIVE',
+  });
+
+  const handleToggleEvent = (event: string) => {
+    setFormData({
+      ...formData,
+      events: formData.events.includes(event)
+        ? formData.events.filter((e: string) => e !== event)
+        : [...formData.events, event],
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      return;
+    }
+    if (!formData.url.trim()) {
+      alert(lang === 'fa' ? 'لطفاً URL را وارد کنید' : 'Please enter a URL');
+      return;
+    }
+    if (formData.events.length === 0) {
+      alert(lang === 'fa' ? 'لطفاً حداقل یک رویداد انتخاب کنید' : 'Please select at least one event');
+      return;
+    }
+    onSave(formData);
+  };
+
+  return (
+    <Modal open={true} onClose={onClose} title={webhook ? (lang === 'fa' ? 'ویرایش وبهوک' : 'Edit Webhook') : (lang === 'fa' ? 'وبهوک جدید' : 'New Webhook')} size="lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label={lang === 'fa' ? 'نام' : 'Name'}
+          value={formData.name}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+          required
+        />
+        <Input
+          label="URL"
+          value={formData.url}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, url: e.target.value })}
+          placeholder="https://example.com/webhook"
+          required
+        />
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            {lang === 'fa' ? 'رویدادها' : 'Events'}
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {events.map(event => (
+              <label key={event} className="flex items-center gap-2 p-2 bg-surface-alt rounded cursor-pointer hover:bg-surface-hover">
+                <input
+                  type="checkbox"
+                  checked={formData.events.includes(event)}
+                  onChange={() => handleToggleEvent(event)}
+                  className="rounded"
+                />
+                <span className="text-xs font-mono">{event}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-3 pt-4">
+          <Button type="submit">
+            {webhook ? (lang === 'fa' ? 'بروزرسانی' : 'Update') : (lang === 'fa' ? 'ایجاد' : 'Create')}
+          </Button>
+          <Button variant="secondary" type="button" onClick={onClose}>
+            {lang === 'fa' ? 'انصراف' : 'Cancel'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function WebhookDeliveriesDrawer({ webhookId, onClose }: { webhookId: string; onClose: () => void }) {
+  const { lang } = useApp();
+  useMockStore();
+  
+  const webhook = mockStore.getWebhook(webhookId);
+  if (!webhook) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative w-full max-w-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <h2 className="text-xl font-bold">{lang === 'fa' ? 'گزارش ارسال‌ها' : 'Delivery Log'}</h2>
+          <button onClick={onClose} className="p-2 rounded hover:bg-surface-hover">
+            ×
+          </button>
+        </div>
+        <div className="p-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+          {webhook.deliveries.length === 0 ? (
+            <EmptyState
+              title={lang === 'fa' ? 'ارسالی وجود ندارد' : 'No deliveries yet'}
+              description={lang === 'fa' ? 'هنوز هیچ ارسال انجام نشده' : 'No deliveries have been made yet'}
+            />
+          ) : (
+            <div className="space-y-3">
+              {webhook.deliveries.map(delivery => (
+                <Card key={delivery.id}>
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant={d.status === 'DELIVERED' ? 'success' : 'danger'}>
-                        {d.status === 'DELIVERED' ? (lang === 'fa' ? 'موفق' : 'Success') : (lang === 'fa' ? 'ناموفق' : 'Failed')}
+                      <Badge variant={delivery.status === 'DELIVERED' ? 'success' : 'danger'}>
+                        {delivery.status === 'DELIVERED' ? (lang === 'fa' ? 'موفق' : 'Success') : (lang === 'fa' ? 'ناموفق' : 'Failed')}
                       </Badge>
-                      <span className="text-text-muted">{d.event}</span>
+                      <span className="text-sm font-medium">{delivery.event}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {d.response_code && <span className={d.response_code < 400 ? 'text-success-600' : 'text-danger-600'}>{d.response_code}</span>}
-                      <span className="text-text-muted">{d.attempts} {lang === 'fa' ? 'تلاش' : 'attempts'}</span>
-                    </div>
+                    <span className="text-xs text-text-muted">
+                      {new Date(delivery.created_at).toLocaleString(lang === 'fa' ? 'fa-IR' : 'en-US')}
+                    </span>
                   </div>
-                ))}
-              </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">{lang === 'fa' ? 'تلاش‌ها' : 'Attempts'}:</span>
+                      <span className="font-medium">{delivery.attempts}</span>
+                    </div>
+                    {delivery.response_code && (
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">{lang === 'fa' ? 'کد پاسخ' : 'Response Code'}:</span>
+                        <span className={`font-mono ${delivery.response_code < 400 ? 'text-success-600' : 'text-danger-600'}`}>
+                          {delivery.response_code}
+                        </span>
+                      </div>
+                    )}
+                    {delivery.response_body && (
+                      <div>
+                        <p className="text-text-muted mb-1">{lang === 'fa' ? 'بدنه پاسخ' : 'Response Body'}:</p>
+                        <pre className="p-2 bg-surface-alt rounded text-xs overflow-x-auto">
+                          {delivery.response_body}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))}
             </div>
-          </Card>
-        ))}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -943,33 +1427,113 @@ export function AdminWebhooksPage() {
 
 export function AdminAuditLogsPage() {
   const { t, lang } = useApp();
+  useMockStore();
+  
+  const [search, setSearch] = useState('');
+  const [actionFilter, setActionFilter] = useState('');
+  const [entityTypeFilter, setEntityTypeFilter] = useState('');
+  const [actorFilter, setActorFilter] = useState('');
+  
+  const logs = mockStore.getAuditLogs();
+
+  const filteredLogs = logs.filter(log => {
+    const matchesSearch = !search || 
+      log.actor_name.toLowerCase().includes(search.toLowerCase()) ||
+      log.entity_id.toLowerCase().includes(search.toLowerCase()) ||
+      log.entity_type.toLowerCase().includes(search.toLowerCase());
+    const matchesAction = !actionFilter || log.action === actionFilter;
+    const matchesEntityType = !entityTypeFilter || log.entity_type === entityTypeFilter;
+    const matchesActor = !actorFilter || log.actor_name.toLowerCase().includes(actorFilter.toLowerCase());
+    return matchesSearch && matchesAction && matchesEntityType && matchesActor;
+  });
+
+  const uniqueEntityTypes = Array.from(new Set(logs.map(log => log.entity_type)));
+  const uniqueActors = Array.from(new Set(logs.map(log => log.actor_name)));
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">{t.admin.audit_logs}</h1>
-      <Card padding={false}>
-        <table className="w-full text-sm">
-          <thead className="bg-surface-alt border-b border-border">
-            <tr>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'زمان' : 'Time'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'کاربر' : 'User'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'عملیات' : 'Action'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'نوع' : 'Type'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">ID</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mockAuditLogs.map(log => (
-              <tr key={log.id} className="border-b border-border hover:bg-surface-hover">
-                <td className="px-4 py-3 text-text-muted text-xs">{new Date(log.created_at).toLocaleString(lang === 'fa' ? 'fa-IR' : 'en-US')}</td>
-                <td className="px-4 py-3">{log.actor_name}</td>
-                <td className="px-4 py-3"><Badge variant={log.action === 'CREATE' ? 'success' : log.action === 'DELETE' ? 'danger' : 'info'}>{log.action}</Badge></td>
-                <td className="px-4 py-3 text-text-muted">{log.entity_type}</td>
-                <td className="px-4 py-3 font-mono text-xs">{log.entity_id}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      {/* Filters */}
+      <Card className="mb-6">
+        <div className="grid grid-cols-4 gap-4">
+          <Input
+            placeholder={lang === 'fa' ? 'جستجو...' : 'Search...'}
+            value={search}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+          />
+          <Select
+            value={actionFilter}
+            onChange={setActionFilter}
+            options={[
+              { value: '', label: lang === 'fa' ? 'همه عملیات' : 'All Actions' },
+              { value: 'CREATE', label: lang === 'fa' ? 'ایجاد' : 'Create' },
+              { value: 'UPDATE', label: lang === 'fa' ? 'بروزرسانی' : 'Update' },
+              { value: 'DELETE', label: lang === 'fa' ? 'حذف' : 'Delete' },
+              { value: 'LOGIN', label: lang === 'fa' ? 'ورود' : 'Login' },
+              { value: 'LOGOUT', label: lang === 'fa' ? 'خروج' : 'Logout' },
+            ]}
+          />
+          <Select
+            value={entityTypeFilter}
+            onChange={setEntityTypeFilter}
+            options={[
+              { value: '', label: lang === 'fa' ? 'همه انواع' : 'All Types' },
+              ...uniqueEntityTypes.map(type => ({ value: type, label: type })),
+            ]}
+          />
+          <Select
+            value={actorFilter}
+            onChange={setActorFilter}
+            options={[
+              { value: '', label: lang === 'fa' ? 'همه کاربران' : 'All Users' },
+              ...uniqueActors.map(actor => ({ value: actor, label: actor })),
+            ]}
+          />
+        </div>
       </Card>
+
+      {/* Logs Table */}
+      {filteredLogs.length === 0 ? (
+        <EmptyState
+          icon={<FileSearch className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'گزارشی یافت نشد' : 'No logs found'}
+          description={lang === 'fa' ? 'فیلترها را تغییر دهید' : 'Try adjusting your filters'}
+        />
+      ) : (
+        <Card padding={false}>
+          <table className="w-full text-sm">
+            <thead className="bg-surface-alt border-b border-border">
+              <tr>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'زمان' : 'Time'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'کاربر' : 'User'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'عملیات' : 'Action'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'نوع' : 'Type'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">ID</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLogs.map(log => (
+                <tr key={log.id} className="border-b border-border hover:bg-surface-hover">
+                  <td className="px-4 py-3 text-text-muted text-xs">
+                    {new Date(log.created_at).toLocaleString(lang === 'fa' ? 'fa-IR' : 'en-US')}
+                  </td>
+                  <td className="px-4 py-3">{log.actor_name}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={log.action === 'CREATE' ? 'success' : log.action === 'DELETE' ? 'danger' : 'info'}>
+                      {log.action}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">{log.entity_type}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{log.entity_id}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-text-muted">{log.ip_address || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
     </div>
   );
 }
