@@ -365,7 +365,7 @@ export interface AISuggestion {
   content: string;
   confidence: number;
   status: AISuggestionStatus;
-  sources?: { title: string; url: string }[];
+  sources?: { title: string; url: string; article_id?: string }[];
   created_at: string;
 }
 
