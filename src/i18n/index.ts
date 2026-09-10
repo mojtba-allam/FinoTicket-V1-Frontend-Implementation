@@ -19,6 +19,10 @@ export const fa = {
     properties: 'ویژگی‌ها', customer_info: 'اطلاعات مشتری', ai_copilot: 'دستیار هوشمند',
     similar_tickets: 'تیکت‌های مشابه', history: 'تاریخچه', watchers: 'ناظران',
     first_response: 'اولین پاسخ', resolution: 'حل', sla_breached: 'SLA نقض شده',
+    attachments: 'ضمیمه‌ها', attachment: 'ضمیمه', upload_attachment: 'بارگذاری ضمیمه',
+    max_files: 'حداکثر ۵ فایل مجاز است', max_size: 'بزرگتر از ۵ مگابایت است',
+    invalid_format: 'فرمت معتبری ندارد. فقط تصاویر، PDF و Word مجاز هستند',
+    preview: 'پیش‌نمایش', download: 'دانلود', remove: 'حذف',
   },
   customer: {
     create: 'ایجاد مشتری', display_name: 'نام نمایشی', identities: 'هویت‌ها',
@@ -114,6 +118,10 @@ export const en: typeof fa = {
     properties: 'Properties', customer_info: 'Customer Info', ai_copilot: 'AI Copilot',
     similar_tickets: 'Similar Tickets', history: 'History', watchers: 'Watchers',
     first_response: 'First Response', resolution: 'Resolution', sla_breached: 'SLA Breached',
+    attachments: 'Attachments', attachment: 'Attachment', upload_attachment: 'Upload Attachment',
+    max_files: 'Maximum 5 files allowed', max_size: 'exceeds 5MB limit',
+    invalid_format: 'has invalid format. Only images, PDF and Word are allowed',
+    preview: 'Preview', download: 'Download', remove: 'Remove',
   },
   customer: {
     create: 'Create Customer', display_name: 'Display Name', identities: 'Identities',

@@ -2,7 +2,7 @@
 // This provides in-memory persistence for all API operations with React reactivity
 
 import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity } from '../../types';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 
 // In-memory store with subscription support
@@ -66,6 +66,9 @@ class MockStore {
   
   // Append-only history log per ticket
   historyByTicketId: Map<string, TimelineEvent[]> = new Map();
+  
+  // Attachments per ticket
+  ticketAttachments: Map<string, Attachment[]> = new Map();
   
   // Subscription system for React reactivity
   private listeners: Set<() => void> = new Set();
@@ -316,6 +319,48 @@ class MockStore {
     
     this.notify();
     return newMessage;
+  }
+
+  // Attachments
+  addTicketAttachment(ticketId: string, attachment: Partial<Attachment>) {
+    const ticket = this.getTicket(ticketId);
+    if (!ticket) return null;
+    
+    const newAttachment: Attachment = {
+      id: `att-${Date.now()}`,
+      filename: attachment.filename || '',
+      mime_type: attachment.mime_type || '',
+      size: attachment.size || 0,
+      url: attachment.url || '',
+      uploader_id: attachment.uploader_id,
+      uploader_name: attachment.uploader_name,
+      created_at: new Date().toISOString(),
+    };
+    
+    // Store attachment in a separate map for the ticket
+    if (!this.ticketAttachments.has(ticketId)) {
+      this.ticketAttachments.set(ticketId, []);
+    }
+    this.ticketAttachments.get(ticketId)!.push(newAttachment);
+    
+    this.notify();
+    return newAttachment;
+  }
+
+  removeTicketAttachment(ticketId: string, attachmentId: string) {
+    const attachments = this.ticketAttachments.get(ticketId);
+    if (!attachments) return false;
+    
+    const index = attachments.findIndex(a => a.id === attachmentId);
+    if (index === -1) return false;
+    
+    attachments.splice(index, 1);
+    this.notify();
+    return true;
+  }
+
+  getTicketAttachments(ticketId: string): Attachment[] {
+    return this.ticketAttachments.get(ticketId) || [];
   }
 
   // Customers

@@ -9,8 +9,49 @@ export default function WidgetPage() {
   const [description, setDescription] = useState('');
   const [message, setMessage] = useState('');
   const [showToast, setShowToast] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
 
   const branding = mockProducts[0].widget_branding!;
+
+  // File upload validation
+  const handleFileUpload = (files: File[]) => {
+    const MAX_FILES = 5;
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_TYPES = ['image/', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    
+    if (pendingAttachments.length + files.length > MAX_FILES) {
+      setShowToast('حداکثر ۵ فایل مجاز است');
+      setTimeout(() => setShowToast(''), 3000);
+      return;
+    }
+
+    for (const file of files) {
+      if (file.size > MAX_SIZE) {
+        setShowToast(`فایل "${file.name}" بزرگتر از ۵ مگابایت است`);
+        setTimeout(() => setShowToast(''), 3000);
+        return;
+      }
+
+      const isValidType = ALLOWED_TYPES.some(type => file.type.startsWith(type));
+      if (!isValidType) {
+        setShowToast(`فایل "${file.name}" فرمت معتبری ندارد`);
+        setTimeout(() => setShowToast(''), 3000);
+        return;
+      }
+    }
+
+    setPendingAttachments([...pendingAttachments, ...files]);
+  };
+
+  const removePendingAttachment = (index: number) => {
+    setPendingAttachments(pendingAttachments.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
@@ -50,8 +91,32 @@ export default function WidgetPage() {
             <div className="space-y-4">
               <Input label="موضوع" value={subject} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubject(e.target.value)} placeholder="موضوع درخواست" />
               <Textarea label="توضیحات" value={description} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)} placeholder="مشکل خود را شرح دهید..." rows={4} />
-              <FileUpload onFiles={() => {}} />
-              <Button className="w-full" onClick={() => { setShowToast('تیکت ثبت شد!'); setScreen('list'); setTimeout(() => setShowToast(''), 3000); }}>
+              
+              {/* Pending attachments */}
+              {pendingAttachments.length > 0 && (
+                <div className="space-y-2">
+                  {pendingAttachments.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-surface-alt rounded-lg text-xs">
+                      <span className="flex-1 truncate">{file.name}</span>
+                      <span className="text-text-muted">{formatFileSize(file.size)}</span>
+                      <button
+                        onClick={() => removePendingAttachment(index)}
+                        className="p-1 hover:bg-surface-hover rounded"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <FileUpload onFiles={handleFileUpload} accept="image/*,.pdf,.doc,.docx" multiple />
+              <Button className="w-full" onClick={() => { 
+                setShowToast('تیکت ثبت شد!'); 
+                setPendingAttachments([]);
+                setScreen('list'); 
+                setTimeout(() => setShowToast(''), 3000); 
+              }}>
                 <Send className="h-4 w-4" /> ثبت تیکت
               </Button>
               <button onClick={() => setScreen('home')} className="w-full text-center text-sm text-text-muted hover:text-text">بازگشت</button>

@@ -35,6 +35,8 @@ export default function TicketDetailPage() {
   const [tags, setTags] = useState<string[]>(ticket?.tags || []);
   const [watchers, setWatchers] = useState<string[]>(ticket?.watchers || []);
   const [suggestions, setSuggestions] = useState(mockAISuggestions.filter(s => s.ticket_id === id));
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; filename: string; type: string } | null>(null);
   
   // Cascading assign state
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(ticket?.department_id || '');
@@ -102,6 +104,63 @@ export default function TicketDetailPage() {
     setSelectedAgentId('');
   };
 
+  // File upload validation and handling
+  const handleFileUpload = (files: File[]) => {
+    const MAX_FILES = 5;
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_TYPES = ['image/', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    
+    // Check total file count
+    if (pendingAttachments.length + files.length > MAX_FILES) {
+      showToast(
+        lang === 'fa' 
+          ? `حداکثر ${MAX_FILES} فایل می‌توانید ضمیمه کنید` 
+          : `Maximum ${MAX_FILES} files allowed`,
+        'error'
+      );
+      return;
+    }
+
+    // Validate each file
+    for (const file of files) {
+      // Check file size
+      if (file.size > MAX_SIZE) {
+        showToast(
+          lang === 'fa'
+            ? `فایل "${file.name}" بزرگتر از ۵ مگابایت است`
+            : `File "${file.name}" exceeds 5MB limit`,
+          'error'
+        );
+        return;
+      }
+
+      // Check file type
+      const isValidType = ALLOWED_TYPES.some(type => file.type.startsWith(type));
+      if (!isValidType) {
+        showToast(
+          lang === 'fa'
+            ? `فایل "${file.name}" فرمت معتبری ندارد. فقط تصاویر، PDF و Word مجاز هستند`
+            : `File "${file.name}" has invalid format. Only images, PDF and Word are allowed`,
+          'error'
+        );
+        return;
+      }
+    }
+
+    // All validations passed, add files
+    setPendingAttachments([...pendingAttachments, ...files]);
+  };
+
+  const removePendingAttachment = (index: number) => {
+    setPendingAttachments(pendingAttachments.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   // Handle team change - clear agent
   const handleTeamChange = (teamId: string) => {
     setSelectedTeamId(teamId);
@@ -150,7 +209,20 @@ export default function TicketDetailPage() {
   };
 
   const handleSendMessage = () => {
-    if (!reply.trim()) return;
+    if (!reply.trim() && pendingAttachments.length === 0) return;
+    
+    // Convert pending files to attachments
+    const attachments = pendingAttachments.map(file => ({
+      id: `att-${Date.now()}-${Math.random()}`,
+      filename: file.name,
+      mime_type: file.type,
+      size: file.size,
+      url: URL.createObjectURL(file),
+      uploader_id: 'u-001',
+      uploader_name: 'علی محمدی',
+      created_at: new Date().toISOString(),
+    }));
+    
     mockStore.addMessage({
       ticket_id: ticket.id,
       sender_type: 'AGENT',
@@ -159,8 +231,11 @@ export default function TicketDetailPage() {
       body: reply,
       is_internal: isInternal,
       channel: 'WEB',
+      attachments,
     });
+    
     setReply('');
+    setPendingAttachments([]);
     showToast(lang === 'fa' ? 'پیام ارسال شد' : 'Message sent');
   };
 
@@ -229,13 +304,31 @@ export default function TicketDetailPage() {
                 </div>
                 <p className="text-sm leading-relaxed">{msg.body}</p>
                 {msg.attachments.length > 0 && (
-                  <div className="mt-2 flex gap-2">
-                    {msg.attachments.map(att => (
-                      <div key={att.id} className="flex items-center gap-2 px-3 py-1.5 bg-surface-alt rounded-lg border border-border text-xs">
-                        <Paperclip className="h-3.5 w-3.5" />
-                        <span>{att.filename}</span>
-                      </div>
-                    ))}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {msg.attachments.map(att => {
+                      const isImage = att.mime_type.startsWith('image/');
+                      return (
+                        <div 
+                          key={att.id} 
+                          className="flex items-center gap-2 px-3 py-1.5 bg-surface-alt rounded-lg border border-border text-xs cursor-pointer hover:bg-surface-hover transition-colors"
+                          onClick={() => {
+                            if (isImage) {
+                              setPreviewAttachment({ url: att.url, filename: att.filename, type: att.mime_type });
+                            } else {
+                              // For non-image files, trigger download
+                              const link = document.createElement('a');
+                              link.href = att.url;
+                              link.download = att.filename;
+                              link.click();
+                            }
+                          }}
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          <span>{att.filename}</span>
+                          {isImage && <span className="text-brand-500">👁</span>}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -265,8 +358,28 @@ export default function TicketDetailPage() {
                   : (lang === 'fa' ? 'پاسخ خود را بنویسید...' : 'Type your reply...')}
                 className="w-full bg-transparent text-sm resize-none outline-none min-h-[80px]" 
               />
+              
+              {/* Pending attachments */}
+              {pendingAttachments.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {pendingAttachments.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-surface-alt rounded-lg text-sm">
+                      <Paperclip className="h-4 w-4 text-text-muted" />
+                      <span className="flex-1 truncate">{file.name}</span>
+                      <span className="text-xs text-text-muted">{formatFileSize(file.size)}</span>
+                      <button
+                        onClick={() => removePendingAttachment(index)}
+                        className="p-1 hover:bg-surface-hover rounded transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5 text-text-muted hover:text-danger-500" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
-                <FileUpload onFiles={() => {}} accept="image/*,.pdf,.doc,.docx" multiple />
+                <FileUpload onFiles={handleFileUpload} accept="image/*,.pdf,.doc,.docx" multiple />
                 <Button onClick={handleSendMessage}>
                   <Send className="h-4 w-4" /> {lang === 'fa' ? 'ارسال' : 'Send'}
                 </Button>
@@ -590,6 +703,31 @@ export default function TicketDetailPage() {
       <Drawer open={showHistory} onClose={() => setShowHistory(false)} title={lang === 'fa' ? 'تاریخچه' : 'History'} side="left">
         <Timeline events={sortedHistoryEvents} />
       </Drawer>
+
+      {/* Attachment Preview Modal */}
+      {previewAttachment && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setPreviewAttachment(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] p-4">
+            <button
+              onClick={() => setPreviewAttachment(null)}
+              className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X className="h-6 w-6 text-white" />
+            </button>
+            <img 
+              src={previewAttachment.url} 
+              alt={previewAttachment.filename}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            />
+            <div className="mt-2 text-center text-white text-sm">
+              {previewAttachment.filename}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
