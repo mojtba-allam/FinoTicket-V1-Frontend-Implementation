@@ -358,13 +358,38 @@ export default function TicketDetailPage() {
         {/* Customer 360 */}
         <div className="p-4 border-b border-border">
           <h3 className="font-semibold text-sm mb-3">{lang === 'fa' ? 'اطلاعات مشتری' : 'Customer Info'}</h3>
-          <div className="flex items-center gap-3 mb-3">
+          <div 
+            className="flex items-center gap-3 mb-3 cursor-pointer hover:bg-surface-hover rounded-lg p-2 -m-2 transition-colors"
+            onClick={() => navigate(`/desk/customers/${ticket.customer_id}`)}
+          >
             <Avatar name={ticket.customer_name || ''} />
-            <div>
-              <p className="text-sm font-medium">{ticket.customer_name}</p>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-brand-600 hover:underline">{ticket.customer_name}</p>
               <p className="text-xs text-text-muted">{lang === 'fa' ? 'مشتری' : 'Customer'}</p>
             </div>
           </div>
+          {/* Identity badges */}
+          {(() => {
+            const customer = mockStore.getCustomer(ticket.customer_id);
+            if (!customer || customer.identities.length === 0) return null;
+            
+            return (
+              <div className="mb-3">
+                <p className="text-xs text-text-muted mb-2">{lang === 'fa' ? 'هویت‌ها' : 'Identities'}</p>
+                <div className="flex flex-wrap gap-1">
+                  {customer.identities.slice(0, 2).map(identity => (
+                    <Badge key={identity.id} variant={identity.verification_status === 'VERIFIED' ? 'success' : 'warning'}>
+                      {identity.provider}
+                      {identity.verification_status === 'VERIFIED' ? ' ✓' : ' ?'}
+                    </Badge>
+                  ))}
+                  {customer.identities.length > 2 && (
+                    <Badge variant="default">+{customer.identities.length - 2}</Badge>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           <Button size="sm" variant="ghost" className="w-full" onClick={() => navigate(`/desk/customers/${ticket.customer_id}`)}>
             {lang === 'fa' ? 'مشاهده پروفایل کامل' : 'View full profile'}
           </Button>

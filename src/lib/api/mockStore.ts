@@ -2,7 +2,7 @@
 // This provides in-memory persistence for all API operations with React reactivity
 
 import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant } from '../../types';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 
 // In-memory store with subscription support
@@ -349,6 +349,80 @@ class MockStore {
     this.customers[index] = { ...this.customers[index], ...updates };
     this.notify();
     return this.customers[index];
+  }
+
+  // Customer Addresses
+  addCustomerAddress(customerId: string, address: Partial<Address>) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return null;
+    
+    const newAddress: Address = {
+      id: `addr-${Date.now()}`,
+      type: address.type || 'HOME',
+      title: address.title || '',
+      address: address.address || '',
+      postal_code: address.postal_code,
+      city: address.city,
+      province: address.province,
+      country: address.country,
+    };
+    
+    customer.addresses.push(newAddress);
+    this.notify();
+    return newAddress;
+  }
+
+  updateCustomerAddress(customerId: string, addressId: string, updates: Partial<Address>) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return null;
+    
+    const addressIndex = customer.addresses.findIndex(a => a.id === addressId);
+    if (addressIndex === -1) return null;
+    
+    customer.addresses[addressIndex] = { ...customer.addresses[addressIndex], ...updates };
+    this.notify();
+    return customer.addresses[addressIndex];
+  }
+
+  deleteCustomerAddress(customerId: string, addressId: string) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return false;
+    
+    const addressIndex = customer.addresses.findIndex(a => a.id === addressId);
+    if (addressIndex === -1) return false;
+    
+    customer.addresses.splice(addressIndex, 1);
+    this.notify();
+    return true;
+  }
+
+  // Customer Identities
+  linkCustomerIdentity(customerId: string, identity: Partial<CustomerIdentity>) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return null;
+    
+    const newIdentity: CustomerIdentity = {
+      id: `id-${Date.now()}`,
+      provider: identity.provider || '',
+      provider_user_id: identity.provider_user_id || '',
+      verification_status: identity.verification_status || 'UNVERIFIED',
+    };
+    
+    customer.identities.push(newIdentity);
+    this.notify();
+    return newIdentity;
+  }
+
+  unlinkCustomerIdentity(customerId: string, identityId: string) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return false;
+    
+    const identityIndex = customer.identities.findIndex(i => i.id === identityId);
+    if (identityIndex === -1) return false;
+    
+    customer.identities.splice(identityIndex, 1);
+    this.notify();
+    return true;
   }
 
   // Categories
