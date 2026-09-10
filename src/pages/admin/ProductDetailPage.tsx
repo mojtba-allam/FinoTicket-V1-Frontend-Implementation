@@ -65,7 +65,7 @@ export default function AdminProductDetailPage() {
     showToast(lang === 'fa' ? 'محصول بروزرسانی شد' : 'Product updated', 'success');
   };
 
-  const availableChannels = ['WEB', 'WIDGET', 'EMAIL', 'CHAT', 'SMS', 'PHONE', 'API', 'WHATSAPP'];
+  const availableChannels: Channel[] = ['WEB', 'WIDGET', 'EMAIL', 'CHAT', 'SMS', 'PHONE', 'API', 'WHATSAPP'];
 
   const toggleChannel = (channel: Channel) => {
     if (channels.includes(channel)) {

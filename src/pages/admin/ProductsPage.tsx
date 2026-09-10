@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Button, Card, Badge, Modal, Input, Select } from '../../components/ui';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
@@ -6,6 +7,7 @@ import { useApp } from '../../app/providers';
 
 export default function AdminProductsPage() {
   const { t, lang, showToast } = useApp();
+  const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -43,8 +45,9 @@ export default function AdminProductsPage() {
       </div>
       <div className="grid grid-cols-3 gap-4">
         {products.map(p => (
-          <Card key={p.id}>
-            <div className="flex items-start justify-between mb-3">
+          <div key={p.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/admin/products/${p.id}`)}>
+            <Card>
+              <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="font-semibold">{p.name}</h3>
                 <p className="text-xs text-text-muted font-mono">{p.slug}</p>
@@ -64,7 +67,8 @@ export default function AdminProductsPage() {
                 <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: p.widget_branding.primary_color }} />
               </div>
             )}
-          </Card>
+            </Card>
+          </div>
         ))}
       </div>
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title={lang === 'fa' ? 'محصول جدید' : 'New Product'}>

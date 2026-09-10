@@ -2,7 +2,7 @@
 // This provides in-memory persistence for all API operations with React reactivity
 
 import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product } from '../../types';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 
 // In-memory store with subscription support
@@ -18,6 +18,49 @@ class MockStore {
   knowledgeBases: KnowledgeBase[] = [...mockKnowledgeBases];
   articles: Article[] = [...mockArticles];
   products: Product[] = [...mockProducts];
+  workflows: Workflow[] = [
+    {
+      id: 'wf-1',
+      name: 'Auto-assign to Tech',
+      event: 'ticket.created',
+      status: 'ACTIVE',
+      version: 2,
+      steps: [
+        {
+          id: 'step-1',
+          type: 'CONDITION',
+          step_key: 'check_priority',
+          config: { field: 'priority', operator: 'equals', value: 'HIGH' },
+          sort_order: 0,
+        },
+        {
+          id: 'step-2',
+          type: 'ACTION',
+          step_key: 'assign_department',
+          config: { department_id: 'dept-tech', assignee_role: 'AGENT' },
+          sort_order: 1,
+        },
+      ],
+      created_at: '2024-01-10T08:00:00Z',
+    },
+    {
+      id: 'wf-2',
+      name: 'SLA Breach Notification',
+      event: 'sla.breached',
+      status: 'ACTIVE',
+      version: 1,
+      steps: [
+        {
+          id: 'step-3',
+          type: 'NOTIFICATION',
+          step_key: 'notify_manager',
+          config: { channel: 'email', template: 'sla_breach', recipients: ['manager'] },
+          sort_order: 0,
+        },
+      ],
+      created_at: '2024-01-12T10:30:00Z',
+    },
+  ];
   
   // Append-only history log per ticket
   historyByTicketId: Map<string, TimelineEvent[]> = new Map();
@@ -399,6 +442,83 @@ class MockStore {
     this.products.push(newProduct);
     this.notify();
     return newProduct;
+  }
+
+  // Workflows
+  getWorkflows() {
+    return this.workflows;
+  }
+
+  getWorkflow(id: string) {
+    return this.workflows.find(w => w.id === id);
+  }
+
+  addWorkflowStep(workflowId: string, step: Omit<WorkflowStep, 'id'>) {
+    const workflow = this.getWorkflow(workflowId);
+    if (!workflow) return null;
+
+    const newStep: WorkflowStep = {
+      ...step,
+      id: `step-${Date.now()}`,
+    };
+
+    workflow.steps.push(newStep);
+    workflow.version++;
+    this.notify();
+    return newStep;
+  }
+
+  updateWorkflowStep(workflowId: string, stepId: string, updates: Partial<WorkflowStep>) {
+    const workflow = this.getWorkflow(workflowId);
+    if (!workflow) return null;
+
+    const step = workflow.steps.find(s => s.id === stepId);
+    if (!step) return null;
+
+    Object.assign(step, updates);
+    workflow.version++;
+    this.notify();
+    return step;
+  }
+
+  removeWorkflowStep(workflowId: string, stepId: string) {
+    const workflow = this.getWorkflow(workflowId);
+    if (!workflow) return false;
+
+    const index = workflow.steps.findIndex(s => s.id === stepId);
+    if (index === -1) return false;
+
+    workflow.steps.splice(index, 1);
+    // Reorder remaining steps
+    workflow.steps.forEach((step, idx) => {
+      step.sort_order = idx;
+    });
+    workflow.version++;
+    this.notify();
+    return true;
+  }
+
+  moveWorkflowStep(workflowId: string, stepId: string, direction: 'up' | 'down') {
+    const workflow = this.getWorkflow(workflowId);
+    if (!workflow) return false;
+
+    const sortedSteps = [...workflow.steps].sort((a, b) => a.sort_order - b.sort_order);
+    const index = sortedSteps.findIndex(s => s.id === stepId);
+    
+    if (index === -1) return false;
+    if (direction === 'up' && index === 0) return false;
+    if (direction === 'down' && index === sortedSteps.length - 1) return false;
+
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    // Swap sort_order
+    const tempOrder = sortedSteps[index].sort_order;
+    sortedSteps[index].sort_order = sortedSteps[swapIndex].sort_order;
+    sortedSteps[swapIndex].sort_order = tempOrder;
+
+    workflow.version++;
+    this.notify();
+    return true;
   }
 }
 
