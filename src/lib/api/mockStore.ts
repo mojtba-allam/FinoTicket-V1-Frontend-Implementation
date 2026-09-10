@@ -402,13 +402,13 @@ class MockStore {
     return result;
   }
 
-  changeTicketStatus(id: string, status: Ticket['status']) {
+  changeTicketStatus(id: string, status: Ticket['status'], note?: string) {
     const result = this.updateTicket(id, { status });
     if (result) {
       this.addHistoryEvent(id, {
         type: 'status_change',
         title: `وضعیت تغییر کرد`,
-        description: status,
+        description: note || status,
         actor: 'کارشناس',
       });
       
@@ -435,13 +435,13 @@ class MockStore {
     return result;
   }
 
-  changeTicketPriority(id: string, priority: Ticket['priority']) {
+  changeTicketPriority(id: string, priority: Ticket['priority'], note?: string) {
     const result = this.updateTicket(id, { priority });
     if (result) {
       this.addHistoryEvent(id, {
         type: 'updated',
         title: `اولویت تغییر کرد`,
-        description: priority,
+        description: note || priority,
         actor: 'کارشناس',
       });
     }

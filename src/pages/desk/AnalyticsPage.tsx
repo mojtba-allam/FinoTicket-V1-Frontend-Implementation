@@ -40,6 +40,25 @@ export default function AnalyticsPage() {
         multiplier = Math.min(days / 30, 3);
       }
       
+      // Helper function to scale array data
+      const scaleSeries = <T extends { count?: number; active?: number; percentage?: number }>(
+        arr: T[], 
+        mult: number
+      ): T[] => arr.map(item => {
+        const scaled = { ...item };
+        if ('count' in scaled && scaled.count !== undefined) {
+          scaled.count = Math.round(scaled.count * mult);
+        }
+        if ('active' in scaled && scaled.active !== undefined) {
+          scaled.active = Math.round(scaled.active * mult);
+        }
+        if ('percentage' in scaled && scaled.percentage !== undefined) {
+          // Keep percentage as is, but add some variance
+          scaled.percentage = Math.min(100, Math.max(0, scaled.percentage + (Math.random() * 10 - 5)));
+        }
+        return scaled;
+      });
+
       setData({
         ...mockAnalytics,
         kpis: {
@@ -57,6 +76,12 @@ export default function AnalyticsPage() {
           created: Math.round(item.created * multiplier),
           resolved: Math.round(item.resolved * multiplier),
         })),
+        by_status: scaleSeries(mockAnalytics.by_status, multiplier),
+        by_priority: scaleSeries(mockAnalytics.by_priority, multiplier),
+        sla_compliance: scaleSeries(mockAnalytics.sla_compliance, multiplier),
+        by_department: scaleSeries(mockAnalytics.by_department, multiplier),
+        agent_workload: scaleSeries(mockAnalytics.agent_workload, multiplier),
+        by_channel: scaleSeries(mockAnalytics.by_channel, multiplier),
       });
       setLoading(false);
     }, 300);

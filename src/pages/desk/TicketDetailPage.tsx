@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Send, Paperclip, Brain, Lightbulb, CheckCircle2, XCircle, History, X, RefreshCw } from 'lucide-react';
+import { ChevronLeft, Send, Paperclip, Brain, Lightbulb, CheckCircle2, XCircle, History, X, RefreshCw, MessageSquare } from 'lucide-react';
 import { Button, Input, Textarea, Select, Badge, StatusBadge, Avatar, Modal, Drawer, Card, FileUpload, SegmentedControl, EmptyState, ErrorState } from '../../components/ui';
 import { SLACountdown } from '../../components/SLACountdown';
 import { TagInput } from '../../components/TagInput';
@@ -31,8 +31,10 @@ export default function TicketDetailPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState(ticket?.status || 'OPEN');
+  const [statusNote, setStatusNote] = useState('');
   const [showPriorityModal, setShowPriorityModal] = useState(false);
   const [selectedPriority, setSelectedPriority] = useState(ticket?.priority || 'NORMAL');
+  const [priorityNote, setPriorityNote] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [tags, setTags] = useState<string[]>(ticket?.tags || []);
   const [watchers, setWatchers] = useState<string[]>(ticket?.watchers || []);
@@ -204,15 +206,17 @@ export default function TicketDetailPage() {
   };
 
   const handleStatusChange = (status: any) => {
-    mockStore.changeTicketStatus(ticket.id, status);
+    mockStore.changeTicketStatus(ticket.id, status, statusNote);
     showToast(lang === 'fa' ? 'وضعیت تغییر کرد' : 'Status changed');
     setShowStatusModal(false);
+    setStatusNote('');
   };
 
   const handlePriorityChange = (priority: any) => {
-    mockStore.changeTicketPriority(ticket.id, priority);
+    mockStore.changeTicketPriority(ticket.id, priority, priorityNote);
     showToast(lang === 'fa' ? 'اولویت تغییر کرد' : 'Priority changed');
     setShowPriorityModal(false);
+    setPriorityNote('');
   };
 
   const handleSendMessage = () => {
@@ -294,7 +298,14 @@ export default function TicketDetailPage() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map(msg => (
+          {messages.length === 0 ? (
+            <EmptyState
+              icon={<MessageSquare className="h-12 w-12 text-text-muted" />}
+              title={lang === 'fa' ? 'هنوز پیامی ارسال نشده' : 'No messages yet'}
+              description={lang === 'fa' ? 'اولین پیام را ارسال کنید' : 'Send the first message'}
+            />
+          ) : (
+          messages.map(msg => (
             <div key={msg.id} className={`flex gap-3 ${msg.is_internal ? 'bg-amber-50 border border-amber-200 rounded-lg p-4' : ''}`}>
               <Avatar name={msg.sender_name} size="sm" />
               <div className="flex-1">
@@ -340,7 +351,8 @@ export default function TicketDetailPage() {
                 )}
               </div>
             </div>
-          ))}
+          ))
+          )}
         </div>
 
         {/* Composer */}
@@ -657,9 +669,10 @@ export default function TicketDetailPage() {
                       <CheckCircle2 className="h-3 w-3" /> {lang === 'fa' ? 'قبول' : 'Accept'}
                     </Button>
                     <Button size="sm" variant="secondary" className="flex-1 text-xs" onClick={() => {
-                      // Edit mode - insert into composer for editing
+                      // Edit mode - insert into composer for editing and mark as ACCEPTED
                       setReply(s.content);
-                      showToast(lang === 'fa' ? 'برای ویرایش در پاسخ‌دهنده قرار گرفت' : 'Inserted for editing', 'info');
+                      mockStore.updateSuggestionStatus(s.id, 'ACCEPTED');
+                      showToast(lang === 'fa' ? 'پیشنهاد برای ویرایش در پاسخ‌دهنده قرار گرفت' : 'Suggestion inserted for editing', 'info');
                     }}>
                       {lang === 'fa' ? 'ویرایش' : 'Edit'}
                     </Button>
@@ -818,7 +831,7 @@ export default function TicketDetailPage() {
       </Modal>
 
       {/* Status Modal */}
-      <Modal open={showStatusModal} onClose={() => { setShowStatusModal(false); setSelectedStatus(ticket?.status || 'OPEN'); }} title={lang === 'fa' ? 'تغییر وضعیت' : 'Change Status'}>
+      <Modal open={showStatusModal} onClose={() => { setShowStatusModal(false); setSelectedStatus(ticket?.status || 'OPEN'); setStatusNote(''); }} title={lang === 'fa' ? 'تغییر وضعیت' : 'Change Status'}>
         <div className="space-y-4">
           <Select 
             label={lang === 'fa' ? 'وضعیت جدید' : 'New Status'}
@@ -826,12 +839,18 @@ export default function TicketDetailPage() {
             value={selectedStatus}
             onChange={(v) => setSelectedStatus(v as any)}
           />
-          <Textarea label={lang === 'fa' ? 'یادداشت (اختیاری)' : 'Note (optional)'} placeholder={lang === 'fa' ? 'دلیل تغییر وضعیت...' : 'Reason for status change...'} rows={3} />
+          <Textarea 
+            label={lang === 'fa' ? 'یادداشت (اختیاری)' : 'Note (optional)'} 
+            placeholder={lang === 'fa' ? 'دلیل تغییر وضعیت...' : 'Reason for status change...'} 
+            rows={3}
+            value={statusNote}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setStatusNote(e.target.value)}
+          />
           <div className="flex gap-3 pt-4">
             <Button onClick={() => handleStatusChange(selectedStatus)}>
               {lang === 'fa' ? 'تغییر وضعیت' : 'Change Status'}
             </Button>
-            <Button variant="secondary" onClick={() => { setShowStatusModal(false); setSelectedStatus(ticket?.status || 'OPEN'); }}>
+            <Button variant="secondary" onClick={() => { setShowStatusModal(false); setSelectedStatus(ticket?.status || 'OPEN'); setStatusNote(''); }}>
               {lang === 'fa' ? 'انصراف' : 'Cancel'}
             </Button>
           </div>
@@ -839,7 +858,7 @@ export default function TicketDetailPage() {
       </Modal>
 
       {/* Priority Modal */}
-      <Modal open={showPriorityModal} onClose={() => { setShowPriorityModal(false); setSelectedPriority(ticket?.priority || 'NORMAL'); }} title={lang === 'fa' ? 'تغییر اولویت' : 'Change Priority'}>
+      <Modal open={showPriorityModal} onClose={() => { setShowPriorityModal(false); setSelectedPriority(ticket?.priority || 'NORMAL'); setPriorityNote(''); }} title={lang === 'fa' ? 'تغییر اولویت' : 'Change Priority'}>
         <div className="space-y-4">
           <Select 
             label={lang === 'fa' ? 'اولویت جدید' : 'New Priority'}
@@ -847,12 +866,18 @@ export default function TicketDetailPage() {
             value={selectedPriority}
             onChange={(v) => setSelectedPriority(v as any)}
           />
-          <Textarea label={lang === 'fa' ? 'دلیل (اختیاری)' : 'Reason (optional)'} placeholder={lang === 'fa' ? 'چرا اولویت تغییر می‌کند؟' : 'Why is priority changing?'} rows={3} />
+          <Textarea 
+            label={lang === 'fa' ? 'دلیل (اختیاری)' : 'Reason (optional)'} 
+            placeholder={lang === 'fa' ? 'چرا اولویت تغییر می‌کند؟' : 'Why is priority changing?'} 
+            rows={3}
+            value={priorityNote}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPriorityNote(e.target.value)}
+          />
           <div className="flex gap-3 pt-4">
             <Button onClick={() => handlePriorityChange(selectedPriority)}>
               {lang === 'fa' ? 'تغییر اولویت' : 'Change Priority'}
             </Button>
-            <Button variant="secondary" onClick={() => { setShowPriorityModal(false); setSelectedPriority(ticket?.priority || 'NORMAL'); }}>
+            <Button variant="secondary" onClick={() => { setShowPriorityModal(false); setSelectedPriority(ticket?.priority || 'NORMAL'); setPriorityNote(''); }}>
               {lang === 'fa' ? 'انصراف' : 'Cancel'}
             </Button>
           </div>
