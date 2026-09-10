@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Ticket as TicketIcon, Shield, Building2 } from 'lucide-react';
+import { Ticket as TicketIcon, Shield, Building2, UserCheck, Eye } from 'lucide-react';
 import { Button, Input, Card } from '../../components/ui';
 import { fa } from '../../i18n';
 import { useApp } from '../../app/providers';
-import { mockPlatformUser, mockUser } from '../../data/mock';
+import { mockStore } from '../../lib/api/mockStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -19,13 +19,22 @@ export default function LoginPage() {
     setLoading(true);
     setTimeout(() => {
       if (email && password) {
-        // Determine which user to login as based on email
-        if (email === 'super@fino.local') {
-          setUser(mockPlatformUser);
-          navigate('/platform');
+        // Look up user by email from mockStore
+        const user = mockStore.getUserByEmail(email);
+        
+        if (user) {
+          if (user.status === 'SUSPENDED') {
+            setError(fa.auth.invalid_credentials);
+          } else {
+            setUser(user);
+            if (user.console === 'platform') {
+              navigate('/platform');
+            } else {
+              navigate('/desk');
+            }
+          }
         } else {
-          setUser(mockUser);
-          navigate('/desk');
+          setError(fa.auth.invalid_credentials);
         }
       } else {
         setError(fa.auth.invalid_credentials);
@@ -34,15 +43,18 @@ export default function LoginPage() {
     }, 800);
   };
 
-  const handleQuickLogin = (type: 'platform' | 'tenant') => {
+  const handleQuickLogin = (email: string) => {
     setLoading(true);
+    setEmail(email);
     setTimeout(() => {
-      if (type === 'platform') {
-        setUser(mockPlatformUser);
-        navigate('/platform');
-      } else {
-        setUser(mockUser);
-        navigate('/desk');
+      const user = mockStore.getUserByEmail(email);
+      if (user) {
+        setUser(user);
+        if (user.console === 'platform') {
+          navigate('/platform');
+        } else {
+          navigate('/desk');
+        }
       }
       setLoading(false);
     }, 500);
@@ -80,20 +92,47 @@ export default function LoginPage() {
               <Button 
                 variant="secondary" 
                 className="w-full" 
-                onClick={() => handleQuickLogin('platform')}
+                onClick={() => handleQuickLogin('super@fino.local')}
                 disabled={loading}
               >
                 <Shield className="h-4 w-4" />
-                سوپر ادمین / Super Admin (super@fino.local)
+                سوپر ادمین / Super Admin
               </Button>
               <Button 
                 variant="secondary" 
                 className="w-full" 
-                onClick={() => handleQuickLogin('tenant')}
+                onClick={() => handleQuickLogin('admin@finoticket.ir')}
                 disabled={loading}
               >
                 <Building2 className="h-4 w-4" />
-                ادمین مستأجر / Tenant Admin (admin@finoticket.ir)
+                ادمین / Admin
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="w-full" 
+                onClick={() => handleQuickLogin('manager@finoticket.ir')}
+                disabled={loading}
+              >
+                <UserCheck className="h-4 w-4" />
+                مدیر ارشد / Manager
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="w-full" 
+                onClick={() => handleQuickLogin('agent@finoticket.ir')}
+                disabled={loading}
+              >
+                <UserCheck className="h-4 w-4" />
+                کارشناس / Agent
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="w-full" 
+                onClick={() => handleQuickLogin('viewer@finoticket.ir')}
+                disabled={loading}
+              >
+                <Eye className="h-4 w-4" />
+                مشاهده‌کننده / Viewer
               </Button>
             </div>
           </div>

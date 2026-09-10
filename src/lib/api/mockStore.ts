@@ -1,15 +1,16 @@
 // Mock Service Worker setup for FinoTicket API
 // This provides in-memory persistence for all API operations with React reactivity
 
-import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog } from '../../types';
+import { mockTickets, mockCustomers, mockMessages, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs, mockAISuggestions } from '../../data/mock';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog, User, AISuggestion } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
+import type { Notification } from '../../components/NotificationCenter';
 
 // In-memory store with subscription support
 class MockStore {
   tickets: Ticket[] = [...mockTickets];
   customers: Customer[] = [...mockCustomers];
-  messages: Message[] = [];
+  messages: Message[] = [...mockMessages];
   categories: Category[] = [...mockCategories];
   departments: Department[] = [...mockDepartments];
   teams: Team[] = [...mockTeams];
@@ -20,6 +21,76 @@ class MockStore {
   products: Product[] = [...mockProducts];
   topics: Topic[] = [...mockTopics];
   tenants: Tenant[] = [...mockTenants];
+  aiSuggestions: AISuggestion[] = [...mockAISuggestions];
+  users: User[] = [
+    // Platform super admin
+    {
+      id: 'u-platform-001',
+      tenant_id: undefined,
+      console: 'platform',
+      email: 'super@fino.local',
+      display_name: 'Super Admin',
+      role: 'PLATFORM_OWNER',
+      presence: 'ONLINE',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-01-01T00:00:00Z',
+    },
+    // Tenant users
+    {
+      id: 'u-001',
+      tenant_id: 'ten-1',
+      console: 'tenant',
+      email: 'admin@finoticket.ir',
+      display_name: 'علی محمدی',
+      role: 'ADMIN',
+      presence: 'ONLINE',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-01-01T00:00:00Z',
+    },
+    {
+      id: 'u-002',
+      tenant_id: 'ten-1',
+      console: 'tenant',
+      email: 'manager@finoticket.ir',
+      display_name: 'فاطمه رضایی',
+      role: 'MANAGER',
+      presence: 'AWAY',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-02-01T00:00:00Z',
+    },
+    {
+      id: 'u-003',
+      tenant_id: 'ten-1',
+      console: 'tenant',
+      email: 'agent@finoticket.ir',
+      display_name: 'حسن نوری',
+      role: 'AGENT',
+      presence: 'BUSY',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-03-01T00:00:00Z',
+    },
+    {
+      id: 'u-004',
+      tenant_id: 'ten-1',
+      console: 'tenant',
+      email: 'viewer@finoticket.ir',
+      display_name: 'مریم حسینی',
+      role: 'VIEWER',
+      presence: 'OFFLINE',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-04-01T00:00:00Z',
+    },
+  ];
   workflows: Workflow[] = [
     {
       id: 'wf-1',
@@ -86,6 +157,48 @@ class MockStore {
   apiClients: APIClient[] = [...mockAPIClients];
   webhooks: Webhook[] = [...mockWebhooks];
   auditLogs: AuditLog[] = [...mockAuditLogs];
+  notifications: Notification[] = [
+    {
+      id: 'n-1',
+      type: 'sla_breached',
+      title: 'SLA نقض شده',
+      description: 'تیکت FT-1003 بیش از ۲ ساعت از زمان پاسخ اول گذشته',
+      ticket_id: 't-003',
+      ticket_number: 'FT-1003',
+      created_at: '2024-12-20T11:30:00Z',
+      read: false,
+    },
+    {
+      id: 'n-2',
+      type: 'assigned',
+      title: 'تیکت جدید ارجاع شد',
+      description: 'FT-1006 به شما ارجاع شد',
+      ticket_id: 't-006',
+      ticket_number: 'FT-1006',
+      created_at: '2024-12-20T11:00:00Z',
+      read: false,
+    },
+    {
+      id: 'n-3',
+      type: 'message',
+      title: 'پیام جدید از مشتری',
+      description: 'سارا احمدی پیامی در FT-1001 ارسال کرد',
+      ticket_id: 't-001',
+      ticket_number: 'FT-1001',
+      created_at: '2024-12-20T10:45:00Z',
+      read: true,
+    },
+    {
+      id: 'n-4',
+      type: 'sla_warning',
+      title: 'هشدار SLA',
+      description: 'FT-1002 کمتر از ۳۰ دقیقه تا نقض SLA',
+      ticket_id: 't-002',
+      ticket_number: 'FT-1002',
+      created_at: '2024-12-20T10:00:00Z',
+      read: true,
+    },
+  ];
   
   // Append-only history log per ticket
   historyByTicketId: Map<string, TimelineEvent[]> = new Map();
@@ -136,7 +249,7 @@ class MockStore {
     });
   }
 
-  createTicket(ticket: Partial<Ticket>) {
+  createTicket(ticket: Partial<Ticket> & { attachments?: Attachment[] }) {
     const newTicket: Ticket = {
       id: `t-${Date.now()}`,
       tenant_id: ticket.tenant_id || 'ten-1', // Default to demo tenant
@@ -151,6 +264,8 @@ class MockStore {
       customer_name: ticket.customer_name,
       category_id: ticket.category_id,
       category_name: ticket.category_name,
+      topic_id: ticket.topic_id,
+      topic_name: ticket.topic_name,
       department_id: ticket.department_id,
       department_name: ticket.department_name,
       team_id: ticket.team_id,
@@ -167,6 +282,23 @@ class MockStore {
       updated_at: new Date().toISOString(),
     };
     this.tickets.unshift(newTicket);
+
+    // Create initial message with description and attachments if provided
+    if (ticket.description || (ticket.attachments && ticket.attachments.length > 0)) {
+      const initialMessage: Message = {
+        id: `m-${Date.now()}`,
+        ticket_id: newTicket.id,
+        sender_type: 'CUSTOMER',
+        sender_id: ticket.customer_id || '',
+        sender_name: ticket.customer_name || 'Customer',
+        body: ticket.description || '',
+        is_internal: false,
+        channel: newTicket.channel,
+        attachments: ticket.attachments || [],
+        created_at: new Date().toISOString(),
+      };
+      this.messages.push(initialMessage);
+    }
     
     // Add history event
     this.addHistoryEvent(newTicket.id, {
@@ -195,6 +327,18 @@ class MockStore {
         title: `ارجاع به ${assignee_name}`,
         actor: 'سیستم',
       });
+      
+      // Add notification
+      const ticket = this.getTicket(id);
+      if (ticket) {
+        this.addNotification({
+          type: 'assigned',
+          title: 'تیکت ارجاع شد',
+          description: `${ticket.ticket_number} به شما ارجاع شد`,
+          ticket_id: id,
+          ticket_number: ticket.ticket_number,
+        });
+      }
     }
     return result;
   }
@@ -241,6 +385,18 @@ class MockStore {
           title: `ارجاع به ${data.assignee_name || data.assignee_id}`,
           actor: 'سیستم',
         });
+        
+        // Add notification
+        const ticket = this.getTicket(id);
+        if (ticket) {
+          this.addNotification({
+            type: 'assigned',
+            title: 'تیکت ارجاع شد',
+            description: `${ticket.ticket_number} به شما ارجاع شد`,
+            ticket_id: id,
+            ticket_number: ticket.ticket_number,
+          });
+        }
       }
     }
     return result;
@@ -255,6 +411,26 @@ class MockStore {
         description: status,
         actor: 'کارشناس',
       });
+      
+      // Add notification
+      const ticket = this.getTicket(id);
+      if (ticket) {
+        const statusLabels: Record<string, string> = {
+          'OPEN': 'باز',
+          'IN_PROGRESS': 'در حال بررسی',
+          'WAITING_CUSTOMER': 'در انتظار مشتری',
+          'WAITING_INTERNAL': 'در انتظار داخلی',
+          'RESOLVED': 'حل شده',
+          'CLOSED': 'بسته'
+        };
+        this.addNotification({
+          type: 'status_change',
+          title: 'وضعیت تیکت تغییر کرد',
+          description: `${ticket.ticket_number} به وضعیت ${statusLabels[status] || status} تغییر کرد`,
+          ticket_id: id,
+          ticket_number: ticket.ticket_number,
+        });
+      }
     }
     return result;
   }
@@ -339,6 +515,20 @@ class MockStore {
       description: newMessage.body.substring(0, 100) + (newMessage.body.length > 100 ? '...' : ''),
       actor: newMessage.sender_name,
     });
+    
+    // Add notification for public customer messages only
+    if (newMessage.sender_type === 'CUSTOMER' && !newMessage.is_internal) {
+      const ticket = this.getTicket(newMessage.ticket_id);
+      if (ticket) {
+        this.addNotification({
+          type: 'message',
+          title: 'پیام جدید از مشتری',
+          description: `${newMessage.sender_name} پیامی در ${ticket.ticket_number} ارسال کرد`,
+          ticket_id: newMessage.ticket_id,
+          ticket_number: ticket.ticket_number,
+        });
+      }
+    }
     
     this.notify();
     return newMessage;
@@ -698,6 +888,21 @@ class MockStore {
 
   getWorkflow(id: string) {
     return this.workflows.find(w => w.id === id);
+  }
+
+  createWorkflow(workflow: Partial<Workflow>) {
+    const newWorkflow: Workflow = {
+      id: `wf-${Date.now()}`,
+      name: workflow.name || '',
+      event: workflow.event || 'ticket.created',
+      status: workflow.status || 'DRAFT',
+      version: 1,
+      steps: [],
+      created_at: new Date().toISOString(),
+    };
+    this.workflows.push(newWorkflow);
+    this.notify();
+    return newWorkflow;
   }
 
   addWorkflowStep(workflowId: string, step: Omit<WorkflowStep, 'id'>) {
@@ -1082,6 +1287,46 @@ class MockStore {
     return this.updateTenant(id, { status: 'SUSPENDED' });
   }
 
+  // Users
+  getUsers() {
+    return this.users;
+  }
+
+  getUser(id: string) {
+    return this.users.find(u => u.id === id);
+  }
+
+  getUserByEmail(email: string) {
+    return this.users.find(u => u.email === email);
+  }
+
+  inviteUser(user: Partial<User>) {
+    const newUser: User = {
+      id: `u-${Date.now()}`,
+      tenant_id: user.tenant_id || 'ten-1',
+      console: user.console || 'tenant',
+      email: user.email || '',
+      display_name: user.display_name || '',
+      role: user.role || 'VIEWER',
+      presence: 'OFFLINE',
+      timezone: user.timezone || 'Asia/Tehran',
+      language: user.language || 'fa',
+      status: 'INVITED',
+      created_at: new Date().toISOString(),
+    };
+    this.users.push(newUser);
+    this.notify();
+    return newUser;
+  }
+
+  updateUser(id: string, updates: Partial<User>) {
+    const index = this.users.findIndex(u => u.id === id);
+    if (index === -1) return null;
+    this.users[index] = { ...this.users[index], ...updates };
+    this.notify();
+    return this.users[index];
+  }
+
   // Hierarchy helpers
   getDepartmentsByProduct(productId: string) {
     return this.departments.filter(d => d.product_id === productId);
@@ -1209,11 +1454,58 @@ class MockStore {
 
     // Sort by score descending
     results.sort((a, b) => b.score - a.score);
-
+    
     return results;
   }
-}
 
+  // Notifications
+  getNotifications() {
+    return this.notifications;
+  }
+
+  addNotification(notification: Partial<Notification>) {
+    const newNotification: Notification = {
+      id: `n-${Date.now()}`,
+      type: notification.type || 'message',
+      title: notification.title || '',
+      description: notification.description || '',
+      ticket_id: notification.ticket_id,
+      ticket_number: notification.ticket_number,
+      created_at: new Date().toISOString(),
+      read: false,
+    };
+    this.notifications.unshift(newNotification);
+    this.notify();
+    return newNotification;
+  }
+
+  markNotificationRead(id: string) {
+    const index = this.notifications.findIndex(n => n.id === id);
+    if (index === -1) return null;
+    this.notifications[index] = { ...this.notifications[index], read: true };
+    this.notify();
+    return this.notifications[index];
+  }
+
+  markAllNotificationsRead() {
+    this.notifications = this.notifications.map(n => ({ ...n, read: true }));
+    this.notify();
+    return this.notifications;
+  }
+
+  // AI Suggestions
+  getSuggestionsForTicket(ticketId: string) {
+    return this.aiSuggestions.filter(s => s.ticket_id === ticketId);
+  }
+
+  updateSuggestionStatus(id: string, status: AISuggestion['status']) {
+    const index = this.aiSuggestions.findIndex(s => s.id === id);
+    if (index === -1) return null;
+    this.aiSuggestions[index] = { ...this.aiSuggestions[index], status };
+    this.notify();
+    return this.aiSuggestions[index];
+  }
+}
 // Singleton store
 export const mockStore = new MockStore();
 
@@ -1308,5 +1600,20 @@ export const api = {
     create: (data: Partial<Tenant>) => mockStore.createTenant(data),
     update: (id: string, data: Partial<Tenant>) => mockStore.updateTenant(id, data),
     suspend: (id: string) => mockStore.suspendTenant(id),
+  },
+
+  // Users
+  users: {
+    list: () => mockStore.getUsers(),
+    get: (id: string) => mockStore.getUser(id),
+    getByEmail: (email: string) => mockStore.getUserByEmail(email),
+    invite: (data: Partial<User>) => mockStore.inviteUser(data),
+    update: (id: string, data: Partial<User>) => mockStore.updateUser(id, data),
+  },
+
+  // AI Suggestions
+  aiSuggestions: {
+    listByTicket: (ticketId: string) => mockStore.getSuggestionsForTicket(ticketId),
+    updateStatus: (id: string, status: AISuggestion['status']) => mockStore.updateSuggestionStatus(id, status),
   },
 };

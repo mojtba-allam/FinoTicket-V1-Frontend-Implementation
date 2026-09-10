@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, X, Clock, AlertTriangle, MessageSquare, UserPlus, Shield } from 'lucide-react';
 import { Badge } from './ui';
+import { mockStore, useMockStore } from '../lib/api/mockStore';
 
 export interface Notification {
   id: string;
@@ -12,49 +13,6 @@ export interface Notification {
   created_at: string;
   read: boolean;
 }
-
-const mockNotifications: Notification[] = [
-  {
-    id: 'n-1',
-    type: 'sla_breached',
-    title: 'SLA نقض شده',
-    description: 'تیکت FT-1003 بیش از ۲ ساعت از زمان پاسخ اول گذشته',
-    ticket_id: 't-003',
-    ticket_number: 'FT-1003',
-    created_at: '2024-12-20T11:30:00Z',
-    read: false,
-  },
-  {
-    id: 'n-2',
-    type: 'assigned',
-    title: 'تیکت جدید ارجاع شد',
-    description: 'FT-1006 به شما ارجاع شد',
-    ticket_id: 't-006',
-    ticket_number: 'FT-1006',
-    created_at: '2024-12-20T11:00:00Z',
-    read: false,
-  },
-  {
-    id: 'n-3',
-    type: 'message',
-    title: 'پیام جدید از مشتری',
-    description: 'سارا احمدی پیامی در FT-1001 ارسال کرد',
-    ticket_id: 't-001',
-    ticket_number: 'FT-1001',
-    created_at: '2024-12-20T10:45:00Z',
-    read: true,
-  },
-  {
-    id: 'n-4',
-    type: 'sla_warning',
-    title: 'هشدار SLA',
-    description: 'FT-1002 کمتر از ۳۰ دقیقه تا نقض SLA',
-    ticket_id: 't-002',
-    ticket_number: 'FT-1002',
-    created_at: '2024-12-20T10:00:00Z',
-    read: true,
-  },
-];
 
 function getNotificationIcon(type: Notification['type']) {
   switch (type) {
@@ -89,10 +47,13 @@ function getRelativeTime(dateStr: string): string {
 
 export function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Subscribe to store changes
+  useMockStore();
+  const notifications = mockStore.getNotifications();
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -122,11 +83,11 @@ export function NotificationCenter() {
   }, [isOpen]);
 
   const markAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    mockStore.markNotificationRead(id);
   };
 
   const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    mockStore.markAllNotificationsRead();
   };
 
   const handleNotificationClick = (notification: Notification) => {

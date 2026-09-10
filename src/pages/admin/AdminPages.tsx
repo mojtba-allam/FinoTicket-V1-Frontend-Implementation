@@ -171,6 +171,10 @@ export function AdminAgentsPage() {
                 </Badge>
               </div>
               <div className="space-y-1.5 text-sm text-text-muted">
+                <p className="text-xs">{(() => {
+                  const user = mockStore.getUser(agent.user_id);
+                  return user ? user.email : '';
+                })()}</p>
                 <p>{lang === 'fa' ? 'زمان‌بندی' : 'Timezone'}: {agent.timezone}</p>
                 <p>{lang === 'fa' ? 'حداکثر تیکت فعال' : 'Max active'}: {agent.max_active_tickets}</p>
                 <p>{lang === 'fa' ? 'زبان' : 'Language'}: {agent.language === 'fa' ? 'فارسی' : 'English'}</p>
@@ -210,7 +214,11 @@ export function AdminAgentsPage() {
 
 function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data: any) => void; onClose: () => void }) {
   const { lang } = useApp();
+  useMockStore();
+  const users = mockStore.getUsers().filter(u => u.console === 'tenant' && (u.role === 'AGENT' || u.role === 'ADMIN' || u.role === 'MANAGER'));
+  
   const [formData, setFormData] = useState({
+    user_id: agent?.user_id || '',
     display_name: agent?.display_name || '',
     timezone: agent?.timezone || 'Asia/Tehran',
     language: agent?.language || 'fa',
@@ -219,8 +227,21 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
     status: agent?.status || 'ACTIVE',
   });
 
+  const handleUserSelect = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    setFormData({ 
+      ...formData, 
+      user_id: userId,
+      display_name: user?.display_name || formData.display_name
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.user_id) {
+      alert(lang === 'fa' ? 'لطفاً یک کاربر را انتخاب کنید' : 'Please select a user');
+      return;
+    }
     if (!formData.display_name.trim()) {
       alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
       return;
@@ -231,6 +252,16 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
   return (
     <Modal open={true} onClose={onClose} title={agent ? (lang === 'fa' ? 'ویرایش کارشناس' : 'Edit Agent') : (lang === 'fa' ? 'کارشناس جدید' : 'New Agent')}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        <Select
+          label={lang === 'fa' ? 'کاربر' : 'User'}
+          value={formData.user_id}
+          onChange={handleUserSelect}
+          options={[
+            { value: '', label: lang === 'fa' ? 'انتخاب کاربر' : 'Select user' },
+            ...users.map(u => ({ value: u.id, label: `${u.display_name} (${u.email})` })),
+          ]}
+          required
+        />
         <Input
           label={lang === 'fa' ? 'نام نمایشی' : 'Display Name'}
           value={formData.display_name}
@@ -290,44 +321,186 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
 }
 
 export function AdminUsersPage() {
-  const { t, lang } = useApp();
-  const users = [
-    { id: 'u-001', email: 'admin@finoticket.ir', display_name: 'علی محمدی', role: 'ADMIN' as const, status: 'ACTIVE' as const, presence: 'ONLINE' as const, timezone: 'Asia/Tehran', language: 'fa' as const, created_at: '2024-01-01' },
-    { id: 'u-002', email: 'fateme@finoticket.ir', display_name: 'فاطمه رضایی', role: 'AGENT' as const, status: 'ACTIVE' as const, presence: 'AWAY' as const, timezone: 'Asia/Tehran', language: 'fa' as const, created_at: '2024-02-01' },
-    { id: 'u-003', email: 'hasan@finoticket.ir', display_name: 'حسن نوری', role: 'MANAGER' as const, status: 'ACTIVE' as const, presence: 'BUSY' as const, timezone: 'Asia/Tehran', language: 'fa' as const, created_at: '2024-03-01' },
-  ];
+  const { t, lang, showToast } = useApp();
+  useMockStore();
+  
+  const [showInvite, setShowInvite] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [role, setRole] = useState<'OWNER' | 'ADMIN' | 'MANAGER' | 'AGENT' | 'VIEWER'>('VIEWER');
+  const [status, setStatus] = useState<'ACTIVE' | 'INVITED' | 'SUSPENDED'>('INVITED');
+
+  const users = mockStore.getUsers().filter(u => u.console === 'tenant');
+
+  const handleInvite = () => {
+    if (!email.trim() || !displayName.trim()) {
+      showToast(lang === 'fa' ? 'لطفاً تمام فیلدها را پر کنید' : 'Please fill all fields', 'error');
+      return;
+    }
+
+    if (editingUser) {
+      mockStore.updateUser(editingUser.id, { role, status });
+      showToast(lang === 'fa' ? 'کاربر بروزرسانی شد' : 'User updated', 'success');
+    } else {
+      mockStore.inviteUser({
+        email,
+        display_name: displayName,
+        role,
+        status,
+      });
+      showToast(lang === 'fa' ? 'دعوت‌نامه ارسال شد' : 'Invitation sent', 'success');
+    }
+
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setShowInvite(false);
+    setEditingUser(null);
+    setEmail('');
+    setDisplayName('');
+    setRole('VIEWER');
+    setStatus('INVITED');
+  };
+
+  const handleEdit = (user: any) => {
+    setEditingUser(user);
+    setEmail(user.email);
+    setDisplayName(user.display_name);
+    setRole(user.role as any);
+    setStatus(user.status as any);
+    setShowInvite(true);
+  };
+
+  const handleDeactivate = (userId: string) => {
+    mockStore.updateUser(userId, { status: 'SUSPENDED' });
+    showToast(lang === 'fa' ? 'کاربر غیرفعال شد' : 'User deactivated', 'success');
+  };
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.users}</h1>
-      <Card padding={false}>
-        <table className="w-full text-sm">
-          <thead className="bg-surface-alt border-b border-border">
-            <tr>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'کاربر' : 'User'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'ایمیل' : 'Email'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'نقش' : 'Role'}</th>
-              <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'وضعیت' : 'Status'}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id} className="border-b border-border hover:bg-surface-hover">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-sm font-bold">
-                      {u.display_name.charAt(0)}
-                    </div>
-                    <span className="font-medium">{u.display_name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-text-muted">{u.email}</td>
-                <td className="px-4 py-3"><Badge variant="brand">{u.role}</Badge></td>
-                <td className="px-4 py-3"><Badge variant={u.status === 'ACTIVE' ? 'success' : 'default'}>{u.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : u.status}</Badge></td>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.users}</h1>
+        <Button onClick={() => setShowInvite(true)}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'دعوت کاربر' : 'Invite User'}
+        </Button>
+      </div>
+
+      {users.length === 0 ? (
+        <EmptyState
+          icon={<Users className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'کاربری وجود ندارد' : 'No users'}
+          description={lang === 'fa' ? 'اولین کاربر را دعوت کنید' : 'Invite your first user'}
+          action={
+            <Button onClick={() => setShowInvite(true)}>
+              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'دعوت کاربر' : 'Invite User'}
+            </Button>
+          }
+        />
+      ) : (
+        <Card padding={false}>
+          <table className="w-full text-sm">
+            <thead className="bg-surface-alt border-b border-border">
+              <tr>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'کاربر' : 'User'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'ایمیل' : 'Email'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'نقش' : 'Role'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'وضعیت' : 'Status'}</th>
+                <th className="text-right px-4 py-3 font-medium text-text-muted">{lang === 'fa' ? 'عملیات' : 'Actions'}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} className="border-b border-border hover:bg-surface-hover">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-sm font-bold">
+                        {u.display_name.charAt(0)}
+                      </div>
+                      <span className="font-medium">{u.display_name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">{u.email}</td>
+                  <td className="px-4 py-3"><Badge variant="brand">{u.role}</Badge></td>
+                  <td className="px-4 py-3">
+                    <Badge variant={u.status === 'ACTIVE' ? 'success' : u.status === 'INVITED' ? 'warning' : 'default'}>
+                      {u.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : 
+                       u.status === 'INVITED' ? (lang === 'fa' ? 'دعوت شده' : 'Invited') : 
+                       (lang === 'fa' ? 'معلق' : 'Suspended')}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => handleEdit(u)}>
+                        {lang === 'fa' ? 'ویرایش' : 'Edit'}
+                      </Button>
+                      {u.status === 'ACTIVE' && (
+                        <Button size="sm" variant="ghost" onClick={() => handleDeactivate(u.id)}>
+                          {lang === 'fa' ? 'غیرفعال' : 'Deactivate'}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {/* Invite/Edit Modal */}
+      {showInvite && (
+        <Modal open={true} onClose={resetForm} title={editingUser ? (lang === 'fa' ? 'ویرایش کاربر' : 'Edit User') : (lang === 'fa' ? 'دعوت کاربر' : 'Invite User')}>
+          <div className="space-y-4">
+            <Input
+              label={lang === 'fa' ? 'ایمیل' : 'Email'}
+              value={email}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+              placeholder="user@example.com"
+              disabled={!!editingUser}
+            />
+            <Input
+              label={lang === 'fa' ? 'نام نمایشی' : 'Display Name'}
+              value={displayName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
+              placeholder={lang === 'fa' ? 'نام کاربر' : 'User name'}
+              disabled={!!editingUser}
+            />
+            <Select
+              label={lang === 'fa' ? 'نقش' : 'Role'}
+              value={role}
+              onChange={(v) => setRole(v as any)}
+              options={[
+                { value: 'OWNER', label: lang === 'fa' ? 'مالک' : 'Owner' },
+                { value: 'ADMIN', label: lang === 'fa' ? 'مدیر' : 'Admin' },
+                { value: 'MANAGER', label: lang === 'fa' ? 'مدیر ارشد' : 'Manager' },
+                { value: 'AGENT', label: lang === 'fa' ? 'کارشناس' : 'Agent' },
+                { value: 'VIEWER', label: lang === 'fa' ? 'مشاهده‌کننده' : 'Viewer' },
+              ]}
+            />
+            {!editingUser && (
+              <Select
+                label={lang === 'fa' ? 'وضعیت' : 'Status'}
+                value={status}
+                onChange={(v) => setStatus(v as any)}
+                options={[
+                  { value: 'INVITED', label: lang === 'fa' ? 'دعوت شده' : 'Invited' },
+                  { value: 'ACTIVE', label: lang === 'fa' ? 'فعال' : 'Active' },
+                ]}
+              />
+            )}
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleInvite}>
+                {editingUser ? (lang === 'fa' ? 'بروزرسانی' : 'Update') : (lang === 'fa' ? 'دعوت' : 'Invite')}
+              </Button>
+              <Button variant="secondary" onClick={resetForm}>
+                {lang === 'fa' ? 'انصراف' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -502,32 +675,109 @@ export function AdminSLAPage() {
 }
 
 export function AdminWorkflowsPage() {
-  const { t, lang } = useApp();
+  const { t, lang, showToast } = useApp();
   const navigate = useNavigate();
   useMockStore();
   const workflows = mockStore.getWorkflows();
+  const [showCreate, setShowCreate] = useState(false);
+  const [workflowName, setWorkflowName] = useState('');
+  const [workflowEvent, setWorkflowEvent] = useState('ticket.created');
+
+  const handleCreate = () => {
+    if (!workflowName.trim()) {
+      showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
+      return;
+    }
+
+    const newWorkflow = mockStore.createWorkflow({
+      name: workflowName,
+      event: workflowEvent,
+      status: 'DRAFT',
+    });
+
+    showToast(lang === 'fa' ? 'جریان کاری ایجاد شد' : 'Workflow created', 'success');
+    setShowCreate(false);
+    setWorkflowName('');
+    setWorkflowEvent('ticket.created');
+    
+    // Navigate to the new workflow detail page
+    navigate(`/admin/workflows/${newWorkflow.id}`);
+  };
   
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.workflows}</h1>
-      <div className="space-y-4">
-        {workflows.map(wf => (
-          <div key={wf.id} onClick={() => navigate(`/admin/workflows/${wf.id}`)} className="cursor-pointer">
-            <Card>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold">{wf.name}</h3>
-                  <p className="text-xs text-text-muted">{lang === 'fa' ? 'رویداد' : 'Event'}: {wf.event} • {lang === 'fa' ? 'نسخه' : 'Version'}: {wf.version}</p>
-                </div>
-                <Badge variant={wf.status === 'ACTIVE' ? 'success' : wf.status === 'DRAFT' ? 'warning' : 'default'}>
-                  {wf.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : wf.status === 'DRAFT' ? (lang === 'fa' ? 'پیش‌نویس' : 'Draft') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-                </Badge>
-              </div>
-              <p className="text-sm text-text-muted">{wf.steps.length} {lang === 'fa' ? 'مرحله' : 'steps'}</p>
-            </Card>
-          </div>
-        ))}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.workflows}</h1>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="h-4 w-4" /> {lang === 'fa' ? 'جریان کاری جدید' : 'New Workflow'}
+        </Button>
       </div>
+
+      {workflows.length === 0 ? (
+        <EmptyState
+          icon={<Workflow className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'جریان کاری وجود ندارد' : 'No workflows'}
+          description={lang === 'fa' ? 'جریان کاری جدید ایجاد کنید' : 'Create a new workflow'}
+          action={
+            <Button onClick={() => setShowCreate(true)}>
+              <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد جریان کاری' : 'Create Workflow'}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-4">
+          {workflows.map(wf => (
+            <div key={wf.id} onClick={() => navigate(`/admin/workflows/${wf.id}`)} className="cursor-pointer">
+              <Card>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold">{wf.name}</h3>
+                    <p className="text-xs text-text-muted">{lang === 'fa' ? 'رویداد' : 'Event'}: {wf.event} • {lang === 'fa' ? 'نسخه' : 'Version'}: {wf.version}</p>
+                  </div>
+                  <Badge variant={wf.status === 'ACTIVE' ? 'success' : wf.status === 'DRAFT' ? 'warning' : 'default'}>
+                    {wf.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : wf.status === 'DRAFT' ? (lang === 'fa' ? 'پیش‌نویس' : 'Draft') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                  </Badge>
+                </div>
+                <p className="text-sm text-text-muted">{wf.steps.length} {lang === 'fa' ? 'مرحله' : 'steps'}</p>
+              </Card>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreate && (
+        <Modal open={true} onClose={() => setShowCreate(false)} title={lang === 'fa' ? 'جریان کاری جدید' : 'New Workflow'}>
+          <div className="space-y-4">
+            <Input
+              label={lang === 'fa' ? 'نام' : 'Name'}
+              value={workflowName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWorkflowName(e.target.value)}
+              placeholder={lang === 'fa' ? 'نام جریان کاری' : 'Workflow name'}
+              required
+            />
+            <Select
+              label={lang === 'fa' ? 'رویداد' : 'Event'}
+              value={workflowEvent}
+              onChange={setWorkflowEvent}
+              options={[
+                { value: 'ticket.created', label: lang === 'fa' ? 'ایجاد تیکت' : 'Ticket Created' },
+                { value: 'ticket.updated', label: lang === 'fa' ? 'بروزرسانی تیکت' : 'Ticket Updated' },
+                { value: 'ticket.assigned', label: lang === 'fa' ? 'ارجاع تیکت' : 'Ticket Assigned' },
+                { value: 'ticket.status_changed', label: lang === 'fa' ? 'تغییر وضعیت تیکت' : 'Ticket Status Changed' },
+              ]}
+            />
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleCreate}>
+                {lang === 'fa' ? 'ایجاد' : 'Create'}
+              </Button>
+              <Button variant="secondary" onClick={() => setShowCreate(false)}>
+                {lang === 'fa' ? 'انصراف' : 'Cancel'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -1546,6 +1796,8 @@ export function AdminAuditLogsPage() {
   const [actionFilter, setActionFilter] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState('');
   const [actorFilter, setActorFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   
   const logs = mockStore.getAuditLogs();
 
@@ -1557,7 +1809,9 @@ export function AdminAuditLogsPage() {
     const matchesAction = !actionFilter || log.action === actionFilter;
     const matchesEntityType = !entityTypeFilter || log.entity_type === entityTypeFilter;
     const matchesActor = !actorFilter || log.actor_name.toLowerCase().includes(actorFilter.toLowerCase());
-    return matchesSearch && matchesAction && matchesEntityType && matchesActor;
+    const matchesDateFrom = !dateFrom || new Date(log.created_at) >= new Date(dateFrom);
+    const matchesDateTo = !dateTo || new Date(log.created_at) <= new Date(dateTo);
+    return matchesSearch && matchesAction && matchesEntityType && matchesActor && matchesDateFrom && matchesDateTo;
   });
 
   const uniqueEntityTypes = Array.from(new Set(logs.map(log => log.entity_type)));
@@ -1569,7 +1823,7 @@ export function AdminAuditLogsPage() {
 
       {/* Filters */}
       <Card className="mb-6">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <Input
             placeholder={lang === 'fa' ? 'جستجو...' : 'Search...'}
             value={search}
@@ -1595,6 +1849,8 @@ export function AdminAuditLogsPage() {
               ...uniqueEntityTypes.map(type => ({ value: type, label: type })),
             ]}
           />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
           <Select
             value={actorFilter}
             onChange={setActorFilter}
@@ -1603,6 +1859,28 @@ export function AdminAuditLogsPage() {
               ...uniqueActors.map(actor => ({ value: actor, label: actor })),
             ]}
           />
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {lang === 'fa' ? 'از تاریخ' : 'From Date'}
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {lang === 'fa' ? 'تا تاریخ' : 'To Date'}
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            />
+          </div>
         </div>
       </Card>
 

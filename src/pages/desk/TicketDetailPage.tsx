@@ -8,7 +8,7 @@ import { Timeline, type TimelineEvent } from '../../components/Timeline';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
 import { useCanMutate } from '../../components/ProtectedRoute';
-import { mockAIAnalyses, mockAISuggestions } from '../../data/mock';
+import { mockAIAnalyses } from '../../data/mock';
 
 export default function TicketDetailPage() {
   const { id } = useParams();
@@ -30,11 +30,13 @@ export default function TicketDetailPage() {
   const [isInternal, setIsInternal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState(ticket?.status || 'OPEN');
   const [showPriorityModal, setShowPriorityModal] = useState(false);
+  const [selectedPriority, setSelectedPriority] = useState(ticket?.priority || 'NORMAL');
   const [showHistory, setShowHistory] = useState(false);
   const [tags, setTags] = useState<string[]>(ticket?.tags || []);
   const [watchers, setWatchers] = useState<string[]>(ticket?.watchers || []);
-  const [suggestions, setSuggestions] = useState(mockAISuggestions.filter(s => s.ticket_id === id));
+  const suggestions = mockStore.getSuggestionsForTicket(id || '');
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   const [previewAttachment, setPreviewAttachment] = useState<{ url: string; filename: string; type: string } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -43,6 +45,10 @@ export default function TicketDetailPage() {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(ticket?.department_id || '');
   const [selectedTeamId, setSelectedTeamId] = useState(ticket?.team_id || '');
   const [selectedAgentId, setSelectedAgentId] = useState(ticket?.assignee_id || '');
+
+  // Reclassify state
+  const [selectedCategoryId, setSelectedCategoryId] = useState(ticket?.category_id || '');
+  const [selectedTopicId, setSelectedTopicId] = useState(ticket?.topic_id || '');
 
   // Sort history events by timestamp (newest first)
   const sortedHistoryEvents = useMemo(() => {
@@ -402,8 +408,68 @@ export default function TicketDetailPage() {
           <div className="space-y-2.5 text-sm">
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'محصول' : 'Product'}</span><span>{ticket.product_name}</span></div>
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'دپارتمان' : 'Department'}</span><span>{ticket.department_name || '—'}</span></div>
-            <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'دسته‌بندی' : 'Category'}</span><span>{ticket.category_name || '—'}</span></div>
-            <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'موضوع' : 'Topic'}</span><span>{ticket.topic_name || '—'}</span></div>
+            
+            {/* Category Select */}
+            {canMutate && ticket.department_id ? (
+              <div className="mt-2">
+                <label className="block text-xs text-text-muted mb-1">{lang === 'fa' ? 'دسته‌بندی' : 'Category'}</label>
+                <Select
+                  value={selectedCategoryId}
+                  onChange={(v) => {
+                    setSelectedCategoryId(v);
+                    setSelectedTopicId(''); // Clear topic when category changes
+                    if (v) {
+                      const category = mockStore.getCategory(v);
+                      mockStore.updateTicket(ticket.id, { 
+                        category_id: v, 
+                        category_name: category?.name,
+                        topic_id: undefined,
+                        topic_name: undefined
+                      });
+                    } else {
+                      mockStore.updateTicket(ticket.id, { 
+                        category_id: undefined, 
+                        category_name: undefined,
+                        topic_id: undefined,
+                        topic_name: undefined
+                      });
+                    }
+                  }}
+                  options={[
+                    { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+                    ...mockStore.getCategoriesByDepartment(ticket.department_id).map(c => ({ value: c.id, label: c.name }))
+                  ]}
+                />
+              </div>
+            ) : (
+              <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'دسته‌بندی' : 'Category'}</span><span>{ticket.category_name || '—'}</span></div>
+            )}
+
+            {/* Topic Select */}
+            {canMutate && selectedCategoryId ? (
+              <div className="mt-2">
+                <label className="block text-xs text-text-muted mb-1">{lang === 'fa' ? 'موضوع' : 'Topic'}</label>
+                <Select
+                  value={selectedTopicId}
+                  onChange={(v) => {
+                    setSelectedTopicId(v);
+                    if (v) {
+                      const topic = mockStore.getTopics().find(t => t.id === v);
+                      mockStore.updateTicket(ticket.id, { topic_id: v, topic_name: topic?.name });
+                    } else {
+                      mockStore.updateTicket(ticket.id, { topic_id: undefined, topic_name: undefined });
+                    }
+                  }}
+                  options={[
+                    { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+                    ...mockStore.getTopicsByCategory(selectedCategoryId).map(t => ({ value: t.id, label: t.name }))
+                  ]}
+                />
+              </div>
+            ) : (
+              <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'موضوع' : 'Topic'}</span><span>{ticket.topic_name || '—'}</span></div>
+            )}
+
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'تیم' : 'Team'}</span><span>{ticket.team_name || '—'}</span></div>
             <div className="flex justify-between"><span className="text-text-muted">{lang === 'fa' ? 'ارجاع به' : 'Assignee'}</span><span>{ticket.assignee_name || '—'}</span></div>
           </div>
@@ -584,10 +650,8 @@ export default function TicketDetailPage() {
                     <Button size="sm" variant="success" className="flex-1 text-xs" onClick={() => {
                       // Insert suggestion into composer
                       setReply(s.content);
-                      // Update suggestion status
-                      setSuggestions(prev => prev.map(sug => 
-                        sug.id === s.id ? { ...sug, status: 'ACCEPTED' as const } : sug
-                      ));
+                      // Update suggestion status in store
+                      mockStore.updateSuggestionStatus(s.id, 'ACCEPTED');
                       showToast(lang === 'fa' ? 'پیشنهاد در پاسخ‌دهنده قرار گرفت' : 'Suggestion inserted into composer', 'success');
                     }}>
                       <CheckCircle2 className="h-3 w-3" /> {lang === 'fa' ? 'قبول' : 'Accept'}
@@ -600,10 +664,8 @@ export default function TicketDetailPage() {
                       {lang === 'fa' ? 'ویرایش' : 'Edit'}
                     </Button>
                     <Button size="sm" variant="danger" className="flex-1 text-xs" onClick={() => {
-                      // Update suggestion status
-                      setSuggestions(prev => prev.map(sug => 
-                        sug.id === s.id ? { ...sug, status: 'REJECTED' as const } : sug
-                      ));
+                      // Update suggestion status in store
+                      mockStore.updateSuggestionStatus(s.id, 'REJECTED');
                       showToast(lang === 'fa' ? 'پیشنهاد رد شد' : 'Suggestion rejected', 'info');
                     }}>
                       <XCircle className="h-3 w-3" /> {lang === 'fa' ? 'رد' : 'Reject'}
@@ -756,18 +818,20 @@ export default function TicketDetailPage() {
       </Modal>
 
       {/* Status Modal */}
-      <Modal open={showStatusModal} onClose={() => setShowStatusModal(false)} title={lang === 'fa' ? 'تغییر وضعیت' : 'Change Status'}>
+      <Modal open={showStatusModal} onClose={() => { setShowStatusModal(false); setSelectedStatus(ticket?.status || 'OPEN'); }} title={lang === 'fa' ? 'تغییر وضعیت' : 'Change Status'}>
         <div className="space-y-4">
           <Select 
             label={lang === 'fa' ? 'وضعیت جدید' : 'New Status'}
             options={Object.entries(t.ticket.statuses).map(([k, v]) => ({ value: k, label: v }))} 
+            value={selectedStatus}
+            onChange={(v) => setSelectedStatus(v as any)}
           />
           <Textarea label={lang === 'fa' ? 'یادداشت (اختیاری)' : 'Note (optional)'} placeholder={lang === 'fa' ? 'دلیل تغییر وضعیت...' : 'Reason for status change...'} rows={3} />
           <div className="flex gap-3 pt-4">
-            <Button onClick={() => handleStatusChange('IN_PROGRESS')}>
+            <Button onClick={() => handleStatusChange(selectedStatus)}>
               {lang === 'fa' ? 'تغییر وضعیت' : 'Change Status'}
             </Button>
-            <Button variant="secondary" onClick={() => setShowStatusModal(false)}>
+            <Button variant="secondary" onClick={() => { setShowStatusModal(false); setSelectedStatus(ticket?.status || 'OPEN'); }}>
               {lang === 'fa' ? 'انصراف' : 'Cancel'}
             </Button>
           </div>
@@ -775,18 +839,20 @@ export default function TicketDetailPage() {
       </Modal>
 
       {/* Priority Modal */}
-      <Modal open={showPriorityModal} onClose={() => setShowPriorityModal(false)} title={lang === 'fa' ? 'تغییر اولویت' : 'Change Priority'}>
+      <Modal open={showPriorityModal} onClose={() => { setShowPriorityModal(false); setSelectedPriority(ticket?.priority || 'NORMAL'); }} title={lang === 'fa' ? 'تغییر اولویت' : 'Change Priority'}>
         <div className="space-y-4">
           <Select 
             label={lang === 'fa' ? 'اولویت جدید' : 'New Priority'}
             options={Object.entries(t.ticket.priorities).map(([k, v]) => ({ value: k, label: v }))} 
+            value={selectedPriority}
+            onChange={(v) => setSelectedPriority(v as any)}
           />
           <Textarea label={lang === 'fa' ? 'دلیل (اختیاری)' : 'Reason (optional)'} placeholder={lang === 'fa' ? 'چرا اولویت تغییر می‌کند؟' : 'Why is priority changing?'} rows={3} />
           <div className="flex gap-3 pt-4">
-            <Button onClick={() => handlePriorityChange('HIGH')}>
+            <Button onClick={() => handlePriorityChange(selectedPriority)}>
               {lang === 'fa' ? 'تغییر اولویت' : 'Change Priority'}
             </Button>
-            <Button variant="secondary" onClick={() => setShowPriorityModal(false)}>
+            <Button variant="secondary" onClick={() => { setShowPriorityModal(false); setSelectedPriority(ticket?.priority || 'NORMAL'); }}>
               {lang === 'fa' ? 'انصراف' : 'Cancel'}
             </Button>
           </div>
