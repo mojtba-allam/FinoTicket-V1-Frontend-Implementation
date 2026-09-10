@@ -32,9 +32,11 @@ import DepartmentDetailPage from './pages/admin/DepartmentDetailPage';
 import CategoryDetailPage from './pages/admin/CategoryDetailPage';
 import AdminCategoriesPage from './pages/admin/CategoriesPage';
 import WorkflowDetailPage from './pages/admin/WorkflowDetailPage';
+import TeamsPage from './pages/admin/TeamsPage';
+import TeamDetailPage from './pages/admin/TeamDetailPage';
+import CreateTeamPage from './pages/admin/CreateTeamPage';
 import {
   AdminDepartmentsPage,
-  AdminTeamsPage,
   AdminAgentsPage,
   AdminUsersPage,
   AdminSLAPage,
@@ -85,7 +87,10 @@ export default function App() {
               <Route path="/admin/categories/:categoryId" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><CategoryDetailPage /></ProtectedRoute>} />
               <Route path="/admin/workflows/:id" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><WorkflowDetailPage /></ProtectedRoute>} />
               <Route path="/admin/departments" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminDepartmentsPage /></ProtectedRoute>} />
-              <Route path="/admin/teams" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminTeamsPage /></ProtectedRoute>} />
+              <Route path="/admin/teams" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><TeamsPage /></ProtectedRoute>} />
+              <Route path="/admin/teams/:teamId" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><TeamDetailPage /></ProtectedRoute>} />
+              <Route path="/admin/departments/:departmentId/teams/create" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><CreateTeamPage /></ProtectedRoute>} />
+              <Route path="/admin/categories/:categoryId/teams/create" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><CreateTeamPage /></ProtectedRoute>} />
               <Route path="/admin/agents" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminAgentsPage /></ProtectedRoute>} />
               <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><AdminUsersPage /></ProtectedRoute>} />
               <Route path="/admin/sla" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminSLAPage /></ProtectedRoute>} />

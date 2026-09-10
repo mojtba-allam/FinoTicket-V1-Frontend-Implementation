@@ -375,6 +375,10 @@ class MockStore {
     return this.teams;
   }
 
+  getTeam(id: string) {
+    return this.teams.find(t => t.id === id);
+  }
+
   createTeam(team: Partial<Team>) {
     const newTeam: Team = {
       id: `tm-${Date.now()}`,
@@ -399,6 +403,11 @@ class MockStore {
     this.teams[index] = { ...this.teams[index], ...updates };
     this.notify();
     return this.teams[index];
+  }
+
+  // Agents
+  getAgents() {
+    return this.agents;
   }
 
   // SLA Policies

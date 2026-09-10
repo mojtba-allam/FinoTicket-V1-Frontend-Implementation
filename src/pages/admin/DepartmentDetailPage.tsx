@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Plus, FolderTree, Users } from 'lucide-react';
+import { ChevronLeft, Plus, FolderTree, Users, UserCheck } from 'lucide-react';
 import { Button, Card, Badge, Modal, Input, Textarea, EmptyState, Tabs } from '../../components/ui';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
@@ -14,12 +14,19 @@ export default function DepartmentDetailPage() {
   const department = mockStore.getDepartment(departmentId || '');
   const categories = departmentId ? mockStore.getCategoriesByDepartment(departmentId) : [];
   const product = department ? mockStore.getProduct(department.product_id) : null;
+  const departmentTeams = departmentId ? mockStore.getTeamsByDepartment(departmentId) : [];
+  const agents = mockStore.getAgents();
 
   const [activeTab, setActiveTab] = useState('categories');
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
+
+  const getAgentName = (userId: string) => {
+    const agent = agents.find(a => a.user_id === userId);
+    return agent?.display_name || userId;
+  };
 
   if (!department) {
     return (
@@ -160,13 +167,75 @@ export default function DepartmentDetailPage() {
         )}
 
         {activeTab === 'teams' && (
-          <EmptyState
-            icon={<Users className="h-12 w-12 text-text-muted" />}
-            title={lang === 'fa' ? 'تیم‌ها به زودی' : 'Teams Coming Soon'}
-            description={lang === 'fa' 
-              ? 'مدیریت تیم‌ها در CHUNK 04 پیاده‌سازی خواهد شد.' 
-              : 'Team management will be implemented in CHUNK 04.'}
-          />
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">
+                {lang === 'fa' ? 'تیم‌های دپارتمان' : 'Department Teams'}
+              </h2>
+              <Button onClick={() => navigate(`/admin/departments/${departmentId}/teams/create`)}>
+                <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد تیم' : 'Create Team'}
+              </Button>
+            </div>
+
+            {departmentTeams.length === 0 ? (
+              <EmptyState
+                icon={<Users className="h-12 w-12 text-text-muted" />}
+                title={lang === 'fa' ? 'هنوز تیمی ثبت نشده' : 'No teams yet'}
+                description={lang === 'fa' 
+                  ? 'برای این دپارتمان هنوز تیمی ایجاد نکرده‌اید.' 
+                  : 'You haven\'t created any teams for this department yet.'}
+                action={
+                  <Button onClick={() => navigate(`/admin/departments/${departmentId}/teams/create`)}>
+                    <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد تیم' : 'Create Team'}
+                  </Button>
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {departmentTeams.map(team => {
+                  const lead = team.members.find(m => m.role === 'LEAD');
+                  const leadName = lead ? getAgentName(lead.user_id) : null;
+                  
+                  return (
+                    <div 
+                      key={team.id} 
+                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => navigate(`/admin/teams/${team.id}`)}
+                    >
+                      <Card>
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <Users className="h-5 w-5 text-brand-500" />
+                            <div>
+                              <h3 className="font-semibold">{team.name}</h3>
+                              <p className="text-xs text-text-muted font-mono">{team.slug}</p>
+                            </div>
+                          </div>
+                          <Badge variant={team.status === 'ACTIVE' ? 'success' : 'default'}>
+                            {team.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2 mt-3 pt-3 border-t border-border">
+                          {leadName && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <UserCheck className="h-4 w-4 text-warning-500" />
+                              <span className="text-text-muted">{lang === 'fa' ? 'سرتیم:' : 'Lead:'}</span>
+                              <span className="font-medium">{leadName}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-sm">
+                            <Users className="h-4 w-4 text-text-muted" />
+                            <span className="text-text-muted">{lang === 'fa' ? 'اعضا:' : 'Members:'}</span>
+                            <span className="font-medium">{team.members.length}</span>
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
 

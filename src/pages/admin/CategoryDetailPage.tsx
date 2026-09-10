@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Plus, Tag, Users } from 'lucide-react';
+import { ChevronLeft, Plus, Tag, Users, UserCheck } from 'lucide-react';
 import { Button, Card, Badge, Modal, Input, Textarea, EmptyState, Tabs } from '../../components/ui';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
@@ -15,12 +15,19 @@ export default function CategoryDetailPage() {
   const topics = categoryId ? mockStore.getTopicsByCategory(categoryId) : [];
   const department = category ? mockStore.getDepartment(category.department_id) : null;
   const product = department ? mockStore.getProduct(department.product_id) : null;
+  const categoryTeams = categoryId ? mockStore.getTeamsByCategory(categoryId) : [];
+  const agents = mockStore.getAgents();
 
   const [activeTab, setActiveTab] = useState('topics');
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
+
+  const getAgentName = (userId: string) => {
+    const agent = agents.find(a => a.user_id === userId);
+    return agent?.display_name || userId;
+  };
 
   if (!category) {
     return (
@@ -163,13 +170,75 @@ export default function CategoryDetailPage() {
         )}
 
         {activeTab === 'teams' && (
-          <EmptyState
-            icon={<Users className="h-12 w-12 text-text-muted" />}
-            title={lang === 'fa' ? 'تیم‌ها به زودی' : 'Teams Coming Soon'}
-            description={lang === 'fa' 
-              ? 'مدیریت تیم‌ها در CHUNK 04 پیاده‌سازی خواهد شد.' 
-              : 'Team management will be implemented in CHUNK 04.'}
-          />
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">
+                {lang === 'fa' ? 'تیم‌های دسته‌بندی' : 'Category Teams'}
+              </h2>
+              <Button onClick={() => navigate(`/admin/categories/${categoryId}/teams/create`)}>
+                <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد تیم' : 'Create Team'}
+              </Button>
+            </div>
+
+            {categoryTeams.length === 0 ? (
+              <EmptyState
+                icon={<Users className="h-12 w-12 text-text-muted" />}
+                title={lang === 'fa' ? 'هنوز تیمی ثبت نشده' : 'No teams yet'}
+                description={lang === 'fa' 
+                  ? 'برای این دسته‌بندی هنوز تیمی ایجاد نکرده‌اید.' 
+                  : 'You haven\'t created any teams for this category yet.'}
+                action={
+                  <Button onClick={() => navigate(`/admin/categories/${categoryId}/teams/create`)}>
+                    <Plus className="h-4 w-4" /> {lang === 'fa' ? 'ایجاد تیم' : 'Create Team'}
+                  </Button>
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {categoryTeams.map((team: any) => {
+                  const lead = team.members.find((m: any) => m.role === 'LEAD');
+                  const leadName = lead ? getAgentName(lead.user_id) : null;
+                  
+                  return (
+                    <div 
+                      key={team.id} 
+                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => navigate(`/admin/teams/${team.id}`)}
+                    >
+                      <Card>
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <Users className="h-5 w-5 text-brand-500" />
+                            <div>
+                              <h3 className="font-semibold">{team.name}</h3>
+                              <p className="text-xs text-text-muted font-mono">{team.slug}</p>
+                            </div>
+                          </div>
+                          <Badge variant={team.status === 'ACTIVE' ? 'success' : 'default'}>
+                            {team.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2 mt-3 pt-3 border-t border-border">
+                          {leadName && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <UserCheck className="h-4 w-4 text-warning-500" />
+                              <span className="text-text-muted">{lang === 'fa' ? 'سرتیم:' : 'Lead:'}</span>
+                              <span className="font-medium">{leadName}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-sm">
+                            <Users className="h-4 w-4 text-text-muted" />
+                            <span className="text-text-muted">{lang === 'fa' ? 'اعضا:' : 'Members:'}</span>
+                            <span className="font-medium">{team.members.length}</span>
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
 
