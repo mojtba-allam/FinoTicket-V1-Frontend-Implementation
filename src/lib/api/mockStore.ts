@@ -1098,6 +1098,120 @@ class MockStore {
   getTeamsByCategory(categoryId: string) {
     return this.teams.filter(t => t.category_id === categoryId && t.scope === 'CATEGORY');
   }
+
+  // Search
+  search(params: { q: string; mode: 'KEYWORD' | 'SEMANTIC' | 'HYBRID'; filters?: any }) {
+    const { q, mode, filters } = params;
+    
+    // Combine all searchable entities
+    const tickets = this.tickets.map(t => ({
+      id: t.id,
+      type: 'ticket' as const,
+      title: `${t.ticket_number} - ${t.subject}`,
+      snippet: t.description || t.subject,
+      url: `/desk/tickets/${t.id}`,
+      product_id: t.product_id,
+      status: t.status,
+      department_id: t.department_id,
+      created_at: t.created_at,
+    }));
+
+    const articles = this.articles
+      .filter(a => a.status === 'PUBLISHED')
+      .map(a => ({
+        id: a.id,
+        type: 'article' as const,
+        title: a.title,
+        snippet: a.summary || a.content.substring(0, 200),
+        url: `/desk/knowledge/articles/${a.id}`,
+      }));
+
+    const customers = this.customers.map(c => ({
+      id: c.id,
+      type: 'customer' as const,
+      title: c.display_name,
+      snippet: c.profile.email || c.profile.mobile || '',
+      url: `/desk/customers/${c.id}`,
+    }));
+
+    let allResults = [...tickets, ...articles, ...customers];
+
+    // Apply filters
+    if (filters) {
+      if (filters.product) {
+        allResults = allResults.filter(r => (r as any).product_id === filters.product);
+      }
+      if (filters.status) {
+        allResults = allResults.filter(r => (r as any).status === filters.status);
+      }
+      if (filters.department) {
+        allResults = allResults.filter(r => (r as any).department_id === filters.department);
+      }
+      if (filters.date_from) {
+        allResults = allResults.filter(r => new Date((r as any).created_at) >= new Date(filters.date_from));
+      }
+      if (filters.date_to) {
+        allResults = allResults.filter(r => new Date((r as any).created_at) <= new Date(filters.date_to));
+      }
+    }
+
+    // Filter by query
+    if (q) {
+      allResults = allResults.filter(r => 
+        r.title.toLowerCase().includes(q.toLowerCase()) ||
+        r.snippet.toLowerCase().includes(q.toLowerCase())
+      );
+    }
+
+    // Apply mode-specific scoring
+    const results = allResults.map(r => {
+      let score = 0.5; // base score
+      
+      if (q) {
+        // Keyword mode: exact match scoring
+        if (mode === 'KEYWORD') {
+          const titleMatch = r.title.toLowerCase().includes(q.toLowerCase());
+          const snippetMatch = r.snippet.toLowerCase().includes(q.toLowerCase());
+          score = (titleMatch ? 0.9 : 0.5) + (snippetMatch ? 0.1 : 0);
+        }
+        // Semantic mode: simulated semantic similarity (randomized but consistent)
+        else if (mode === 'SEMANTIC') {
+          const hash = (r.title + q).split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a;
+          }, 0);
+          score = 0.6 + (Math.abs(hash) % 40) / 100;
+        }
+        // Hybrid mode: blend of keyword and semantic
+        else {
+          const titleMatch = r.title.toLowerCase().includes(q.toLowerCase());
+          const snippetMatch = r.snippet.toLowerCase().includes(q.toLowerCase());
+          const keywordScore = (titleMatch ? 0.9 : 0.5) + (snippetMatch ? 0.1 : 0);
+          const hash = (r.title + q).split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a;
+          }, 0);
+          const semanticScore = 0.6 + (Math.abs(hash) % 40) / 100;
+          score = (keywordScore + semanticScore) / 2;
+        }
+      }
+
+      return {
+        ...r,
+        score: Math.min(score, 0.99),
+        mode_score: {
+          keyword: mode === 'KEYWORD' ? score : undefined,
+          semantic: mode === 'SEMANTIC' ? score : undefined,
+          hybrid: mode === 'HYBRID' ? score : undefined,
+        }
+      };
+    });
+
+    // Sort by score descending
+    results.sort((a, b) => b.score - a.score);
+
+    return results;
+  }
 }
 
 // Singleton store

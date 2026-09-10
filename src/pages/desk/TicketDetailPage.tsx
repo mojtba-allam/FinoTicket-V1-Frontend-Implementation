@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Send, Paperclip, Brain, Lightbulb, CheckCircle2, XCircle, History, X } from 'lucide-react';
+import { ChevronLeft, Send, Paperclip, Brain, Lightbulb, CheckCircle2, XCircle, History, X, RefreshCw } from 'lucide-react';
 import { Button, Input, Textarea, Select, Badge, StatusBadge, Avatar, Modal, Drawer, Card, FileUpload, SegmentedControl, EmptyState, ErrorState } from '../../components/ui';
 import { SLACountdown } from '../../components/SLACountdown';
 import { TagInput } from '../../components/TagInput';
@@ -37,6 +37,7 @@ export default function TicketDetailPage() {
   const [suggestions, setSuggestions] = useState(mockAISuggestions.filter(s => s.ticket_id === id));
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   const [previewAttachment, setPreviewAttachment] = useState<{ url: string; filename: string; type: string } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   // Cascading assign state
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(ticket?.department_id || '');
@@ -616,21 +617,72 @@ export default function TicketDetailPage() {
 
         {/* Similar Tickets */}
         <div className="p-4">
-          <h3 className="font-semibold text-sm mb-3">{lang === 'fa' ? 'تیکت‌های مشابه' : 'Similar Tickets'}</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm">{lang === 'fa' ? 'تیکت‌های مشابه' : 'Similar Tickets'}</h3>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => {
+                // Trigger re-render by updating state
+                setRefreshKey(prev => prev + 1);
+              }}
+            >
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          </div>
           <div className="space-y-2">
-            {mockStore.getTickets()
-              .filter(tk => tk.id !== ticket.id && tk.customer_id === ticket.customer_id)
-              .slice(0, 3)
-              .map(tk => (
-                <div key={tk.id} onClick={() => navigate(`/desk/tickets/${tk.id}`)}
-                  className="p-2.5 rounded-lg border border-border hover:bg-surface-hover cursor-pointer">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-mono text-text-muted">{tk.ticket_number}</span>
-                    <StatusBadge status={tk.status} />
+            {(() => {
+              // Get similar tickets (same customer or same category)
+              const similarTickets = mockStore.getTickets()
+                .filter(tk => 
+                  tk.id !== ticket.id && 
+                  (tk.customer_id === ticket.customer_id || tk.category_id === ticket.category_id)
+                )
+                .map(tk => {
+                  // Calculate similarity score (mock)
+                  let score = 0;
+                  if (tk.customer_id === ticket.customer_id) score += 0.5;
+                  if (tk.category_id === ticket.category_id) score += 0.3;
+                  if (tk.department_id === ticket.department_id) score += 0.2;
+                  
+                  return { ...tk, similarity_score: Math.min(score, 0.95) };
+                })
+                .sort((a, b) => b.similarity_score - a.similarity_score)
+                .slice(0, 5);
+
+              if (similarTickets.length === 0) {
+                return (
+                  <p className="text-xs text-text-muted text-center py-4">
+                    {lang === 'fa' ? 'تیکت مشابهی یافت نشد' : 'No similar tickets found'}
+                  </p>
+                );
+              }
+
+              return similarTickets.map(tk => (
+                <div 
+                  key={tk.id} 
+                  onClick={() => navigate(`/desk/tickets/${tk.id}`)}
+                  className="p-2.5 rounded-lg border border-border hover:bg-surface-hover cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-text-muted">{tk.ticket_number}</span>
+                      <StatusBadge status={tk.status} />
+                    </div>
+                    <span className="text-xs text-brand-600 font-medium">
+                      {Math.round(tk.similarity_score * 100)}%
+                    </span>
                   </div>
                   <p className="text-xs truncate">{tk.subject}</p>
+                  <div className="mt-1 h-1 bg-surface-alt rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-brand-500 rounded-full transition-all"
+                      style={{ width: `${tk.similarity_score * 100}%` }}
+                    />
+                  </div>
                 </div>
-              ))}
+              ));
+            })()}
           </div>
         </div>
       </div>
