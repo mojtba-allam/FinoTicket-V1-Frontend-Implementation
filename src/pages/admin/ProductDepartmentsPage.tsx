@@ -106,23 +106,30 @@ export default function ProductDepartmentsPage() {
       ) : (
         <div className="grid grid-cols-2 gap-4">
           {departments.map(dept => (
-            <Card key={dept.id}>
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <Building2 className="h-5 w-5 text-brand-500" />
-                  <div>
-                    <h3 className="font-semibold">{dept.name}</h3>
-                    <p className="text-xs text-text-muted font-mono">{dept.slug}</p>
+            <div key={dept.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/admin/departments/${dept.id}`)}>
+              <Card>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Building2 className="h-5 w-5 text-brand-500" />
+                    <div>
+                      <h3 className="font-semibold">{dept.name}</h3>
+                      <p className="text-xs text-text-muted font-mono">{dept.slug}</p>
+                    </div>
                   </div>
+                  <Badge variant={dept.status === 'ACTIVE' ? 'success' : 'default'}>
+                    {dept.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                  </Badge>
                 </div>
-                <Badge variant={dept.status === 'ACTIVE' ? 'success' : 'default'}>
-                  {dept.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-                </Badge>
-              </div>
-              {dept.description && (
-                <p className="text-sm text-text-secondary mt-2">{dept.description}</p>
-              )}
-            </Card>
+                {dept.description && (
+                  <p className="text-sm text-text-secondary mt-2">{dept.description}</p>
+                )}
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs text-text-muted">
+                    {lang === 'fa' ? 'برای مشاهده دسته‌بندی‌ها کلیک کنید' : 'Click to view categories'}
+                  </p>
+                </div>
+              </Card>
+            </div>
           ))}
         </div>
       )}

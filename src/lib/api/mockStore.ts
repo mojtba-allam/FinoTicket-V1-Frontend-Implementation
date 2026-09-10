@@ -309,6 +309,10 @@ class MockStore {
     return this.categories;
   }
 
+  getCategory(id: string) {
+    return this.categories.find(c => c.id === id);
+  }
+
   createCategory(category: Partial<Category>) {
     const newCategory: Category = {
       id: `cat-${Date.now()}`,
