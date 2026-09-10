@@ -4,6 +4,7 @@ import { AppProvider } from './app/providers';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import DeskLayout from './layouts/DeskLayout';
+import PlatformLayout from './layouts/PlatformLayout';
 
 // Public pages
 import LandingPage from './pages/landing/LandingPage';
@@ -47,6 +48,13 @@ import {
   AdminWebhooksPage,
   AdminAuditLogsPage,
 } from './pages/admin/AdminPages';
+
+// Platform pages
+import PlatformOverviewPage from './pages/platform/PlatformOverviewPage';
+import PlatformTenantsPage from './pages/platform/PlatformTenantsPage';
+import PlatformTenantDetailPage from './pages/platform/PlatformTenantDetailPage';
+import PlatformSettingsPage from './pages/platform/PlatformSettingsPage';
+import PlatformAuditPage from './pages/platform/PlatformAuditPage';
 
 // Error pages
 import { ForbiddenPage, NotFoundPage } from './pages/system/ErrorPages';
@@ -103,6 +111,15 @@ export default function App() {
 
               {/* Error routes (with layout) */}
               <Route path="/forbidden" element={<ForbiddenPage />} />
+            </Route>
+
+            {/* Platform routes (with platform layout) */}
+            <Route element={<PlatformLayout />}>
+              <Route path="/platform" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformOverviewPage /></ProtectedRoute>} />
+              <Route path="/platform/tenants" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformTenantsPage /></ProtectedRoute>} />
+              <Route path="/platform/tenants/:tenantId" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformTenantDetailPage /></ProtectedRoute>} />
+              <Route path="/platform/settings" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformSettingsPage /></ProtectedRoute>} />
+              <Route path="/platform/audit" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformAuditPage /></ProtectedRoute>} />
             </Route>
 
             {/* 404 (no layout) */}
