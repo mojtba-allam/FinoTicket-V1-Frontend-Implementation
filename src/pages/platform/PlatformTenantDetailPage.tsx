@@ -7,7 +7,7 @@ import { useApp } from '../../app/providers';
 
 export default function PlatformTenantDetailPage() {
   const { tenantId } = useParams<{ tenantId: string }>();
-  const { lang } = useApp();
+  const { lang, startImpersonation } = useApp();
   const navigate = useNavigate();
   useMockStore();
   
@@ -55,11 +55,24 @@ export default function PlatformTenantDetailPage() {
             <p className="text-sm text-text-muted font-mono">{tenant.slug}</p>
           </div>
         </div>
-        <Badge variant={tenant.status === 'ACTIVE' ? 'success' : 'warning'}>
-          {tenant.status === 'ACTIVE' 
-            ? (lang === 'fa' ? 'فعال' : 'Active')
-            : (lang === 'fa' ? 'معلق' : 'Suspended')}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant={tenant.status === 'ACTIVE' ? 'success' : 'warning'}>
+            {tenant.status === 'ACTIVE' 
+              ? (lang === 'fa' ? 'فعال' : 'Active')
+              : (lang === 'fa' ? 'معلق' : 'Suspended')}
+          </Badge>
+          {tenant.status === 'ACTIVE' && (
+            <Button 
+              variant="secondary" 
+              onClick={() => {
+                startImpersonation(tenant.id, tenant.name);
+                navigate('/desk');
+              }}
+            >
+              {lang === 'fa' ? 'مشاهده به عنوان ادمین' : 'Impersonate as Admin'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards */}

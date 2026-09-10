@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { Button, SearchInput, StatusBadge, EmptyState, Card, Badge } from '../../components/ui';
+import { Button, SearchInput, StatusBadge, EmptyState, Card, Badge, Skeleton } from '../../components/ui';
 import { FilterBar, useTicketFilters } from '../../components/FilterBar';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
@@ -14,9 +14,16 @@ export default function TicketListPage() {
   const [filters, setFilters] = useTicketFilters();
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Subscribe to store changes for reactivity
   useMockStore();
+
+  // Simulate loading state
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 200);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Get tickets from mockStore (live data)
   const allTickets = mockStore.getTickets();
@@ -89,7 +96,22 @@ export default function TicketListPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(ticket => (
+              {loading ? (
+                // Skeleton loading rows
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-border">
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-48" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-6 w-16" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-6 w-16" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-6 w-16" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-6 w-20" /></td>
+                  </tr>
+                ))
+              ) : (
+              filtered.map(ticket => (
                 <tr key={ticket.id} onClick={() => navigate(`/desk/tickets/${ticket.id}`)}
                   className="border-b border-border hover:bg-surface-hover cursor-pointer transition-colors">
                   <td className="px-4 py-3 font-mono text-xs">{ticket.ticket_number}</td>
@@ -101,7 +123,8 @@ export default function TicketListPage() {
                   <td className="px-4 py-3">{ticket.sla_status ? <StatusBadge status={ticket.sla_status} type="sla" /> : '—'}</td>
                   <td className="px-4 py-3"><Badge variant="info">{t.ticket.channels[ticket.channel as keyof typeof t.ticket.channels] || ticket.channel}</Badge></td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

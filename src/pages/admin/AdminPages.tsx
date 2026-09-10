@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, UserCheck, Users, Shield, Clock, Workflow, Zap, BookOpen, Globe, Webhook, FileSearch, Plus } from 'lucide-react';
 import { Card, Badge, Button, Modal, Input, Select, EmptyState } from '../../components/ui';
-import { mockDepartments, mockTeams, mockKnowledgeBases, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
+import { mockKnowledgeBases, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
 import { useApp } from '../../app/providers';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
 
@@ -14,35 +14,46 @@ export function AdminDepartmentsPage() {
   
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.departments}</h1>
-      <div className="grid grid-cols-2 gap-4">
-        {departments.map(d => {
-          const product = mockStore.getProduct(d.product_id);
-          return (
-            <div key={d.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/admin/departments/${d.id}`)}>
-              <Card>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Building2 className="h-5 w-5 text-brand-500" />
-                    <div>
-                      <h3 className="font-medium">{d.name}</h3>
-                      <p className="text-xs text-text-muted font-mono">{d.slug}</p>
-                      {product && (
-                        <p className="text-xs text-text-muted mt-1">
-                          {lang === 'fa' ? 'محصول' : 'Product'}: {product.name}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <Badge variant={d.status === 'ACTIVE' ? 'success' : 'default'}>
-                    {d.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-                  </Badge>
-                </div>
-              </Card>
-            </div>
-          );
-        })}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">{t.admin.departments}</h1>
       </div>
+      
+      {departments.length === 0 ? (
+        <EmptyState
+          icon={<Building2 className="h-12 w-12 text-text-muted" />}
+          title={lang === 'fa' ? 'دپارتمانی وجود ندارد' : 'No departments'}
+          description={lang === 'fa' ? 'برای شروع، اولین دپارتمان را ایجاد کنید' : 'Create your first department to get started'}
+        />
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          {departments.map(d => {
+            const product = mockStore.getProduct(d.product_id);
+            return (
+              <div key={d.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/admin/departments/${d.id}`)}>
+                <Card>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Building2 className="h-5 w-5 text-brand-500" />
+                      <div>
+                        <h3 className="font-medium">{d.name}</h3>
+                        <p className="text-xs text-text-muted font-mono">{d.slug}</p>
+                        {product && (
+                          <p className="text-xs text-text-muted mt-1">
+                            {lang === 'fa' ? 'محصول' : 'Product'}: {product.name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={d.status === 'ACTIVE' ? 'success' : 'default'}>
+                      {d.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
+                    </Badge>
+                  </div>
+                </Card>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -22,6 +22,7 @@ export default function CreateTicketPage() {
   const [description, setDescription] = useState('');
   const [customer, setCustomer] = useState('');
   const [priority, setPriority] = useState('NORMAL');
+  const [errors, setErrors] = useState<{ subject?: string; customer?: string }>({});
   
   // Cascading classification state
   const [departmentId, setDepartmentId] = useState('');
@@ -99,10 +100,21 @@ export default function CreateTicketPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate required fields
+    const newErrors: { subject?: string; customer?: string } = {};
     if (!subject.trim()) {
-      showToast(lang === 'fa' ? 'لطفاً موضوع را وارد کنید' : 'Please enter a subject', 'error');
+      newErrors.subject = lang === 'fa' ? 'موضوع الزامی است' : 'Subject is required';
+    }
+    if (!customer) {
+      newErrors.customer = lang === 'fa' ? 'مشتری الزامی است' : 'Customer is required';
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+    
+    setErrors({});
 
     const selectedCustomer = mockCustomers.find(c => c.id === customer);
     const selectedDepartment = departmentId ? mockStore.getDepartment(departmentId) : null;
@@ -151,7 +163,11 @@ export default function CreateTicketPage() {
           <Input 
             label={t.ticket.subject} 
             value={subject} 
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSubject(e.target.value)} 
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              setSubject(e.target.value);
+              if (errors.subject) setErrors({ ...errors, subject: undefined });
+            }}
+            error={errors.subject}
             required 
             placeholder={lang === 'fa' ? 'موضوع تیکت را وارد کنید' : 'Enter ticket subject'} 
           />
@@ -168,7 +184,11 @@ export default function CreateTicketPage() {
               label={lang === 'fa' ? 'مشتری' : 'Customer'} 
               options={mockCustomers.map(c => ({ value: c.id, label: c.display_name }))} 
               value={customer} 
-              onChange={setCustomer} 
+              onChange={(v) => {
+                setCustomer(v);
+                if (errors.customer) setErrors({ ...errors, customer: undefined });
+              }}
+              error={errors.customer}
               placeholder={lang === 'fa' ? 'انتخاب مشتری' : 'Select customer'} 
             />
             
