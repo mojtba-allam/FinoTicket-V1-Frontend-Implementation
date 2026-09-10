@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Send, Paperclip, Brain, Lightbulb, CheckCircle2, XCircle, History, X } from 'lucide-react';
+import { ChevronLeft, Send, Paperclip, Brain, Lightbulb, CheckCircle2, XCircle, History, X, RefreshCw } from 'lucide-react';
 import { Button, Input, Textarea, Select, Badge, StatusBadge, Avatar, Modal, Drawer, Card, FileUpload, SegmentedControl, EmptyState, ErrorState } from '../../components/ui';
 import { SLACountdown } from '../../components/SLACountdown';
 import { TagInput } from '../../components/TagInput';
@@ -35,6 +35,9 @@ export default function TicketDetailPage() {
   const [tags, setTags] = useState<string[]>(ticket?.tags || []);
   const [watchers, setWatchers] = useState<string[]>(ticket?.watchers || []);
   const [suggestions, setSuggestions] = useState(mockAISuggestions.filter(s => s.ticket_id === id));
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; filename: string; type: string } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   // Cascading assign state
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(ticket?.department_id || '');
@@ -102,6 +105,63 @@ export default function TicketDetailPage() {
     setSelectedAgentId('');
   };
 
+  // File upload validation and handling
+  const handleFileUpload = (files: File[]) => {
+    const MAX_FILES = 5;
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_TYPES = ['image/', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    
+    // Check total file count
+    if (pendingAttachments.length + files.length > MAX_FILES) {
+      showToast(
+        lang === 'fa' 
+          ? `حداکثر ${MAX_FILES} فایل می‌توانید ضمیمه کنید` 
+          : `Maximum ${MAX_FILES} files allowed`,
+        'error'
+      );
+      return;
+    }
+
+    // Validate each file
+    for (const file of files) {
+      // Check file size
+      if (file.size > MAX_SIZE) {
+        showToast(
+          lang === 'fa'
+            ? `فایل "${file.name}" بزرگتر از ۵ مگابایت است`
+            : `File "${file.name}" exceeds 5MB limit`,
+          'error'
+        );
+        return;
+      }
+
+      // Check file type
+      const isValidType = ALLOWED_TYPES.some(type => file.type.startsWith(type));
+      if (!isValidType) {
+        showToast(
+          lang === 'fa'
+            ? `فایل "${file.name}" فرمت معتبری ندارد. فقط تصاویر، PDF و Word مجاز هستند`
+            : `File "${file.name}" has invalid format. Only images, PDF and Word are allowed`,
+          'error'
+        );
+        return;
+      }
+    }
+
+    // All validations passed, add files
+    setPendingAttachments([...pendingAttachments, ...files]);
+  };
+
+  const removePendingAttachment = (index: number) => {
+    setPendingAttachments(pendingAttachments.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   // Handle team change - clear agent
   const handleTeamChange = (teamId: string) => {
     setSelectedTeamId(teamId);
@@ -150,7 +210,20 @@ export default function TicketDetailPage() {
   };
 
   const handleSendMessage = () => {
-    if (!reply.trim()) return;
+    if (!reply.trim() && pendingAttachments.length === 0) return;
+    
+    // Convert pending files to attachments
+    const attachments = pendingAttachments.map(file => ({
+      id: `att-${Date.now()}-${Math.random()}`,
+      filename: file.name,
+      mime_type: file.type,
+      size: file.size,
+      url: URL.createObjectURL(file),
+      uploader_id: 'u-001',
+      uploader_name: 'علی محمدی',
+      created_at: new Date().toISOString(),
+    }));
+    
     mockStore.addMessage({
       ticket_id: ticket.id,
       sender_type: 'AGENT',
@@ -159,8 +232,11 @@ export default function TicketDetailPage() {
       body: reply,
       is_internal: isInternal,
       channel: 'WEB',
+      attachments,
     });
+    
     setReply('');
+    setPendingAttachments([]);
     showToast(lang === 'fa' ? 'پیام ارسال شد' : 'Message sent');
   };
 
@@ -229,13 +305,31 @@ export default function TicketDetailPage() {
                 </div>
                 <p className="text-sm leading-relaxed">{msg.body}</p>
                 {msg.attachments.length > 0 && (
-                  <div className="mt-2 flex gap-2">
-                    {msg.attachments.map(att => (
-                      <div key={att.id} className="flex items-center gap-2 px-3 py-1.5 bg-surface-alt rounded-lg border border-border text-xs">
-                        <Paperclip className="h-3.5 w-3.5" />
-                        <span>{att.filename}</span>
-                      </div>
-                    ))}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {msg.attachments.map(att => {
+                      const isImage = att.mime_type.startsWith('image/');
+                      return (
+                        <div 
+                          key={att.id} 
+                          className="flex items-center gap-2 px-3 py-1.5 bg-surface-alt rounded-lg border border-border text-xs cursor-pointer hover:bg-surface-hover transition-colors"
+                          onClick={() => {
+                            if (isImage) {
+                              setPreviewAttachment({ url: att.url, filename: att.filename, type: att.mime_type });
+                            } else {
+                              // For non-image files, trigger download
+                              const link = document.createElement('a');
+                              link.href = att.url;
+                              link.download = att.filename;
+                              link.click();
+                            }
+                          }}
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          <span>{att.filename}</span>
+                          {isImage && <span className="text-brand-500">👁</span>}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -265,8 +359,28 @@ export default function TicketDetailPage() {
                   : (lang === 'fa' ? 'پاسخ خود را بنویسید...' : 'Type your reply...')}
                 className="w-full bg-transparent text-sm resize-none outline-none min-h-[80px]" 
               />
+              
+              {/* Pending attachments */}
+              {pendingAttachments.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {pendingAttachments.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-surface-alt rounded-lg text-sm">
+                      <Paperclip className="h-4 w-4 text-text-muted" />
+                      <span className="flex-1 truncate">{file.name}</span>
+                      <span className="text-xs text-text-muted">{formatFileSize(file.size)}</span>
+                      <button
+                        onClick={() => removePendingAttachment(index)}
+                        className="p-1 hover:bg-surface-hover rounded transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5 text-text-muted hover:text-danger-500" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
-                <FileUpload onFiles={() => {}} accept="image/*,.pdf,.doc,.docx" multiple />
+                <FileUpload onFiles={handleFileUpload} accept="image/*,.pdf,.doc,.docx" multiple />
                 <Button onClick={handleSendMessage}>
                   <Send className="h-4 w-4" /> {lang === 'fa' ? 'ارسال' : 'Send'}
                 </Button>
@@ -358,13 +472,38 @@ export default function TicketDetailPage() {
         {/* Customer 360 */}
         <div className="p-4 border-b border-border">
           <h3 className="font-semibold text-sm mb-3">{lang === 'fa' ? 'اطلاعات مشتری' : 'Customer Info'}</h3>
-          <div className="flex items-center gap-3 mb-3">
+          <div 
+            className="flex items-center gap-3 mb-3 cursor-pointer hover:bg-surface-hover rounded-lg p-2 -m-2 transition-colors"
+            onClick={() => navigate(`/desk/customers/${ticket.customer_id}`)}
+          >
             <Avatar name={ticket.customer_name || ''} />
-            <div>
-              <p className="text-sm font-medium">{ticket.customer_name}</p>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-brand-600 hover:underline">{ticket.customer_name}</p>
               <p className="text-xs text-text-muted">{lang === 'fa' ? 'مشتری' : 'Customer'}</p>
             </div>
           </div>
+          {/* Identity badges */}
+          {(() => {
+            const customer = mockStore.getCustomer(ticket.customer_id);
+            if (!customer || customer.identities.length === 0) return null;
+            
+            return (
+              <div className="mb-3">
+                <p className="text-xs text-text-muted mb-2">{lang === 'fa' ? 'هویت‌ها' : 'Identities'}</p>
+                <div className="flex flex-wrap gap-1">
+                  {customer.identities.slice(0, 2).map(identity => (
+                    <Badge key={identity.id} variant={identity.verification_status === 'VERIFIED' ? 'success' : 'warning'}>
+                      {identity.provider}
+                      {identity.verification_status === 'VERIFIED' ? ' ✓' : ' ?'}
+                    </Badge>
+                  ))}
+                  {customer.identities.length > 2 && (
+                    <Badge variant="default">+{customer.identities.length - 2}</Badge>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           <Button size="sm" variant="ghost" className="w-full" onClick={() => navigate(`/desk/customers/${ticket.customer_id}`)}>
             {lang === 'fa' ? 'مشاهده پروفایل کامل' : 'View full profile'}
           </Button>
@@ -391,9 +530,23 @@ export default function TicketDetailPage() {
             ))}
           </div>
 
+          {/* AI Suggestion Banner */}
+          {suggestions.some(s => s.status === 'PENDING') && (
+            <div className="mb-3 p-2 bg-accent-400/10 border border-accent-400/30 rounded-lg">
+              <p className="text-xs text-accent-600 flex items-center gap-1">
+                <Brain className="h-3 w-3" />
+                {lang === 'fa' ? 'پیشنهاد هوش مصنوعی — قبل از ارسال بررسی کنید' : 'AI suggestion — review before send'}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             {suggestions.map(s => (
-              <div key={s.id} className="border border-border rounded-lg p-3">
+              <div key={s.id} className={`border rounded-lg p-3 ${
+                s.status === 'ACCEPTED' ? 'border-success-200 bg-success-50' :
+                s.status === 'REJECTED' ? 'border-danger-200 bg-danger-50 opacity-50' :
+                'border-border'
+              }`}>
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant={s.status === 'ACCEPTED' ? 'success' : s.status === 'REJECTED' ? 'danger' : 'warning'}>
                     {s.status === 'PENDING' 
@@ -405,6 +558,27 @@ export default function TicketDetailPage() {
                   <span className="text-xs text-text-muted">{Math.round(s.confidence * 100)}% {lang === 'fa' ? 'اطمینان' : 'confidence'}</span>
                 </div>
                 <p className="text-xs mb-2 leading-relaxed">{s.content}</p>
+                
+                {/* Source Citations */}
+                {s.sources && s.sources.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-text-muted mb-1">
+                      {lang === 'fa' ? 'منابع:' : 'Sources:'}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {s.sources.map((source, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => navigate(`/desk/knowledge/articles/${source.article_id}`)}
+                          className="text-xs px-2 py-1 bg-brand-50 text-brand-700 rounded hover:bg-brand-100 transition-colors"
+                        >
+                          {source.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {s.status === 'PENDING' && (
                   <div className="flex gap-1">
                     <Button size="sm" variant="success" className="flex-1 text-xs" onClick={() => {
@@ -417,6 +591,13 @@ export default function TicketDetailPage() {
                       showToast(lang === 'fa' ? 'پیشنهاد در پاسخ‌دهنده قرار گرفت' : 'Suggestion inserted into composer', 'success');
                     }}>
                       <CheckCircle2 className="h-3 w-3" /> {lang === 'fa' ? 'قبول' : 'Accept'}
+                    </Button>
+                    <Button size="sm" variant="secondary" className="flex-1 text-xs" onClick={() => {
+                      // Edit mode - insert into composer for editing
+                      setReply(s.content);
+                      showToast(lang === 'fa' ? 'برای ویرایش در پاسخ‌دهنده قرار گرفت' : 'Inserted for editing', 'info');
+                    }}>
+                      {lang === 'fa' ? 'ویرایش' : 'Edit'}
                     </Button>
                     <Button size="sm" variant="danger" className="flex-1 text-xs" onClick={() => {
                       // Update suggestion status
@@ -436,21 +617,72 @@ export default function TicketDetailPage() {
 
         {/* Similar Tickets */}
         <div className="p-4">
-          <h3 className="font-semibold text-sm mb-3">{lang === 'fa' ? 'تیکت‌های مشابه' : 'Similar Tickets'}</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm">{lang === 'fa' ? 'تیکت‌های مشابه' : 'Similar Tickets'}</h3>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={() => {
+                // Trigger re-render by updating state
+                setRefreshKey(prev => prev + 1);
+              }}
+            >
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          </div>
           <div className="space-y-2">
-            {mockStore.getTickets()
-              .filter(tk => tk.id !== ticket.id && tk.customer_id === ticket.customer_id)
-              .slice(0, 3)
-              .map(tk => (
-                <div key={tk.id} onClick={() => navigate(`/desk/tickets/${tk.id}`)}
-                  className="p-2.5 rounded-lg border border-border hover:bg-surface-hover cursor-pointer">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-mono text-text-muted">{tk.ticket_number}</span>
-                    <StatusBadge status={tk.status} />
+            {(() => {
+              // Get similar tickets (same customer or same category)
+              const similarTickets = mockStore.getTickets()
+                .filter(tk => 
+                  tk.id !== ticket.id && 
+                  (tk.customer_id === ticket.customer_id || tk.category_id === ticket.category_id)
+                )
+                .map(tk => {
+                  // Calculate similarity score (mock)
+                  let score = 0;
+                  if (tk.customer_id === ticket.customer_id) score += 0.5;
+                  if (tk.category_id === ticket.category_id) score += 0.3;
+                  if (tk.department_id === ticket.department_id) score += 0.2;
+                  
+                  return { ...tk, similarity_score: Math.min(score, 0.95) };
+                })
+                .sort((a, b) => b.similarity_score - a.similarity_score)
+                .slice(0, 5);
+
+              if (similarTickets.length === 0) {
+                return (
+                  <p className="text-xs text-text-muted text-center py-4">
+                    {lang === 'fa' ? 'تیکت مشابهی یافت نشد' : 'No similar tickets found'}
+                  </p>
+                );
+              }
+
+              return similarTickets.map(tk => (
+                <div 
+                  key={tk.id} 
+                  onClick={() => navigate(`/desk/tickets/${tk.id}`)}
+                  className="p-2.5 rounded-lg border border-border hover:bg-surface-hover cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-text-muted">{tk.ticket_number}</span>
+                      <StatusBadge status={tk.status} />
+                    </div>
+                    <span className="text-xs text-brand-600 font-medium">
+                      {Math.round(tk.similarity_score * 100)}%
+                    </span>
                   </div>
                   <p className="text-xs truncate">{tk.subject}</p>
+                  <div className="mt-1 h-1 bg-surface-alt rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-brand-500 rounded-full transition-all"
+                      style={{ width: `${tk.similarity_score * 100}%` }}
+                    />
+                  </div>
                 </div>
-              ))}
+              ));
+            })()}
           </div>
         </div>
       </div>
@@ -565,6 +797,31 @@ export default function TicketDetailPage() {
       <Drawer open={showHistory} onClose={() => setShowHistory(false)} title={lang === 'fa' ? 'تاریخچه' : 'History'} side="left">
         <Timeline events={sortedHistoryEvents} />
       </Drawer>
+
+      {/* Attachment Preview Modal */}
+      {previewAttachment && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setPreviewAttachment(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] p-4">
+            <button
+              onClick={() => setPreviewAttachment(null)}
+              className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X className="h-6 w-6 text-white" />
+            </button>
+            <img 
+              src={previewAttachment.url} 
+              alt={previewAttachment.filename}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            />
+            <div className="mt-2 text-center text-white text-sm">
+              {previewAttachment.filename}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

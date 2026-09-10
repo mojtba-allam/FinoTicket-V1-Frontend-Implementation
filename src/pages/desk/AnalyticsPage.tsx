@@ -1,49 +1,114 @@
-import React from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart3, Inbox, AlertTriangle, Clock, Users, TrendingUp } from 'lucide-react';
-import { Card, KPICard } from '../../components/ui';
+import { Card, KPICard, SegmentedControl, Skeleton } from '../../components/ui';
 import { mockAnalytics } from '../../data/mock';
 import { useApp } from '../../app/providers';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
 
 export default function AnalyticsPage() {
   const { t, product, lang } = useApp();
-  const data = mockAnalytics;
+  const [dateRange, setDateRange] = useState<'7d' | '30d' | 'custom'>('30d');
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(mockAnalytics);
+  
   const COLORS = ['#0B7C8C', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#F97316'];
+
+  // Simulate loading when date range changes
+  useEffect(() => {
+    setLoading(true);
+    const timer = setTimeout(() => {
+      // Generate different data based on date range
+      const multiplier = dateRange === '7d' ? 0.3 : dateRange === '30d' ? 1 : 2;
+      
+      setData({
+        ...mockAnalytics,
+        kpis: {
+          open_tickets: Math.round(mockAnalytics.kpis.open_tickets * multiplier),
+          unassigned: Math.round(mockAnalytics.kpis.unassigned * multiplier),
+          breached_sla: Math.round(mockAnalytics.kpis.breached_sla * multiplier),
+          waiting_customer: Math.round(mockAnalytics.kpis.waiting_customer * multiplier),
+          my_active: Math.round(mockAnalytics.kpis.my_active * multiplier),
+          avg_first_response: mockAnalytics.kpis.avg_first_response,
+          avg_resolution: mockAnalytics.kpis.avg_resolution,
+          satisfaction: mockAnalytics.kpis.satisfaction,
+        },
+        tickets_over_time: mockAnalytics.tickets_over_time.slice(
+          dateRange === '7d' ? -7 : dateRange === '30d' ? -30 : 0
+        ).map(item => ({
+          ...item,
+          created: Math.round(item.created * multiplier),
+          resolved: Math.round(item.resolved * multiplier),
+        })),
+      });
+      setLoading(false);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [dateRange]);
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">{t.analytics.title}</h1>
         <div className="flex items-center gap-3">
+          <SegmentedControl
+            options={[
+              { value: '7d', label: lang === 'fa' ? '۷ روز' : '7 Days' },
+              { value: '30d', label: lang === 'fa' ? '۳۰ روز' : '30 Days' },
+              { value: 'custom', label: lang === 'fa' ? 'سفارشی' : 'Custom' },
+            ]}
+            value={dateRange}
+            onChange={(v) => setDateRange(v as '7d' | '30d' | 'custom')}
+          />
           <span className="text-sm px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 font-medium">{product.name}</span>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <KPICard label={t.analytics.open_tickets} value={data.kpis.open_tickets} icon={<Inbox className="h-6 w-6" />} color="brand" />
-        <KPICard label={t.analytics.unassigned} value={data.kpis.unassigned} icon={<AlertTriangle className="h-6 w-6" />} color="warning" />
-        <KPICard label={t.analytics.breached_sla} value={data.kpis.breached_sla} icon={<Clock className="h-6 w-6" />} color="danger" />
-        <KPICard label={t.analytics.waiting_customer} value={data.kpis.waiting_customer} icon={<Users className="h-6 w-6" />} color="brand" />
+        {loading ? (
+          <>
+            <Card className="h-24"><Skeleton className="h-full w-full" /></Card>
+            <Card className="h-24"><Skeleton className="h-full w-full" /></Card>
+            <Card className="h-24"><Skeleton className="h-full w-full" /></Card>
+            <Card className="h-24"><Skeleton className="h-full w-full" /></Card>
+          </>
+        ) : (
+          <>
+            <KPICard label={t.analytics.open_tickets} value={data.kpis.open_tickets} icon={<Inbox className="h-6 w-6" />} color="brand" />
+            <KPICard label={t.analytics.unassigned} value={data.kpis.unassigned} icon={<AlertTriangle className="h-6 w-6" />} color="warning" />
+            <KPICard label={t.analytics.breached_sla} value={data.kpis.breached_sla} icon={<Clock className="h-6 w-6" />} color="danger" />
+            <KPICard label={t.analytics.waiting_customer} value={data.kpis.waiting_customer} icon={<Users className="h-6 w-6" />} color="brand" />
+          </>
+        )}
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-2 gap-6">
-        {/* Tickets Over Time */}
-        <Card>
-          <h3 className="font-semibold mb-4">{t.analytics.tickets_over_time}</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={data.tickets_over_time}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Legend />
-              <Area type="monotone" dataKey="created" name={lang === 'fa' ? 'ایجاد شده' : 'Created'} stroke="#0B7C8C" fill="#0B7C8C" fillOpacity={0.1} />
-              <Area type="monotone" dataKey="resolved" name={lang === 'fa' ? 'حل شده' : 'Resolved'} stroke="#10b981" fill="#10b981" fillOpacity={0.1} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </Card>
+        {loading ? (
+          <>
+            <Card className="h-80"><Skeleton className="h-full w-full" /></Card>
+            <Card className="h-80"><Skeleton className="h-full w-full" /></Card>
+            <Card className="h-80"><Skeleton className="h-full w-full" /></Card>
+            <Card className="h-80"><Skeleton className="h-full w-full" /></Card>
+          </>
+        ) : (
+          <>
+            {/* Tickets Over Time */}
+            <Card>
+              <h3 className="font-semibold mb-4">{t.analytics.tickets_over_time}</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={data.tickets_over_time}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Area type="monotone" dataKey="created" name={lang === 'fa' ? 'ایجاد شده' : 'Created'} stroke="#0B7C8C" fill="#0B7C8C" fillOpacity={0.1} />
+                  <Area type="monotone" dataKey="resolved" name={lang === 'fa' ? 'حل شده' : 'Resolved'} stroke="#10b981" fill="#10b981" fillOpacity={0.1} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Card>
 
         {/* By Status */}
         <Card>
@@ -122,6 +187,8 @@ export default function AnalyticsPage() {
             </BarChart>
           </ResponsiveContainer>
         </Card>
+          </>
+        )}
       </div>
     </div>
   );

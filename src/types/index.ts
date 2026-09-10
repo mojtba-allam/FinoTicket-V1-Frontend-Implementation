@@ -169,6 +169,9 @@ export interface Attachment {
   mime_type: string;
   size: number;
   url: string;
+  uploader_id?: string;
+  uploader_name?: string;
+  created_at?: string;
 }
 
 export interface Department {
@@ -362,7 +365,7 @@ export interface AISuggestion {
   content: string;
   confidence: number;
   status: AISuggestionStatus;
-  sources?: { title: string; url: string }[];
+  sources?: { title: string; url: string; article_id?: string }[];
   created_at: string;
 }
 

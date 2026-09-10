@@ -36,6 +36,8 @@ import WorkflowDetailPage from './pages/admin/WorkflowDetailPage';
 import TeamsPage from './pages/admin/TeamsPage';
 import TeamDetailPage from './pages/admin/TeamDetailPage';
 import CreateTeamPage from './pages/admin/CreateTeamPage';
+import ArticleEditorPage from './pages/admin/ArticleEditorPage';
+import KBArticlesListPage from './pages/admin/KBArticlesListPage';
 import {
   AdminDepartmentsPage,
   AdminAgentsPage,
@@ -105,6 +107,9 @@ export default function App() {
               <Route path="/admin/workflows" element={<ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER']}><AdminWorkflowsPage /></ProtectedRoute>} />
               <Route path="/admin/automations" element={<ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER']}><AdminAutomationsPage /></ProtectedRoute>} />
               <Route path="/admin/knowledge-bases" element={<ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER']}><AdminKnowledgeBasesPage /></ProtectedRoute>} />
+              <Route path="/admin/knowledge-bases/:kbId/articles" element={<ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER']}><KBArticlesListPage /></ProtectedRoute>} />
+              <Route path="/admin/knowledge-bases/:kbId/articles/new" element={<ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER']}><ArticleEditorPage /></ProtectedRoute>} />
+              <Route path="/admin/knowledge-bases/:kbId/articles/:articleId/edit" element={<ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER']}><ArticleEditorPage /></ProtectedRoute>} />
               <Route path="/admin/api-clients" element={<ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER']}><AdminAPIClientsPage /></ProtectedRoute>} />
               <Route path="/admin/webhooks" element={<ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER']}><AdminWebhooksPage /></ProtectedRoute>} />
               <Route path="/admin/audit-logs" element={<ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminAuditLogsPage /></ProtectedRoute>} />

@@ -1,8 +1,8 @@
 // Mock Service Worker setup for FinoTicket API
 // This provides in-memory persistence for all API operations with React reactivity
 
-import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant } from '../../types';
+import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 
 // In-memory store with subscription support
@@ -63,9 +63,35 @@ class MockStore {
       created_at: '2024-01-12T10:30:00Z',
     },
   ];
+  automations: Automation[] = [
+    {
+      id: 'au-1',
+      name: 'تغییر وضعیت به در انتظار مشتری',
+      trigger_event: 'message.added',
+      conditions: [{ field: 'sender_type', operator: 'equals', value: 'AGENT' }],
+      actions: [{ type: 'set_status', value: 'WAITING_CUSTOMER' }],
+      status: 'ACTIVE',
+      created_at: '2024-01-10T08:00:00Z',
+    },
+    {
+      id: 'au-2',
+      name: 'اولویت‌بندی خودکار کلمات کلیدی',
+      trigger_event: 'ticket.created',
+      conditions: [{ field: 'subject', operator: 'contains', value: 'فوری' }],
+      actions: [{ type: 'set_priority', value: 'HIGH' }],
+      status: 'ACTIVE',
+      created_at: '2024-01-12T10:30:00Z',
+    },
+  ];
+  apiClients: APIClient[] = [...mockAPIClients];
+  webhooks: Webhook[] = [...mockWebhooks];
+  auditLogs: AuditLog[] = [...mockAuditLogs];
   
   // Append-only history log per ticket
   historyByTicketId: Map<string, TimelineEvent[]> = new Map();
+  
+  // Attachments per ticket
+  ticketAttachments: Map<string, Attachment[]> = new Map();
   
   // Subscription system for React reactivity
   private listeners: Set<() => void> = new Set();
@@ -318,6 +344,48 @@ class MockStore {
     return newMessage;
   }
 
+  // Attachments
+  addTicketAttachment(ticketId: string, attachment: Partial<Attachment>) {
+    const ticket = this.getTicket(ticketId);
+    if (!ticket) return null;
+    
+    const newAttachment: Attachment = {
+      id: `att-${Date.now()}`,
+      filename: attachment.filename || '',
+      mime_type: attachment.mime_type || '',
+      size: attachment.size || 0,
+      url: attachment.url || '',
+      uploader_id: attachment.uploader_id,
+      uploader_name: attachment.uploader_name,
+      created_at: new Date().toISOString(),
+    };
+    
+    // Store attachment in a separate map for the ticket
+    if (!this.ticketAttachments.has(ticketId)) {
+      this.ticketAttachments.set(ticketId, []);
+    }
+    this.ticketAttachments.get(ticketId)!.push(newAttachment);
+    
+    this.notify();
+    return newAttachment;
+  }
+
+  removeTicketAttachment(ticketId: string, attachmentId: string) {
+    const attachments = this.ticketAttachments.get(ticketId);
+    if (!attachments) return false;
+    
+    const index = attachments.findIndex(a => a.id === attachmentId);
+    if (index === -1) return false;
+    
+    attachments.splice(index, 1);
+    this.notify();
+    return true;
+  }
+
+  getTicketAttachments(ticketId: string): Attachment[] {
+    return this.ticketAttachments.get(ticketId) || [];
+  }
+
   // Customers
   getCustomers() {
     return this.customers;
@@ -349,6 +417,80 @@ class MockStore {
     this.customers[index] = { ...this.customers[index], ...updates };
     this.notify();
     return this.customers[index];
+  }
+
+  // Customer Addresses
+  addCustomerAddress(customerId: string, address: Partial<Address>) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return null;
+    
+    const newAddress: Address = {
+      id: `addr-${Date.now()}`,
+      type: address.type || 'HOME',
+      title: address.title || '',
+      address: address.address || '',
+      postal_code: address.postal_code,
+      city: address.city,
+      province: address.province,
+      country: address.country,
+    };
+    
+    customer.addresses.push(newAddress);
+    this.notify();
+    return newAddress;
+  }
+
+  updateCustomerAddress(customerId: string, addressId: string, updates: Partial<Address>) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return null;
+    
+    const addressIndex = customer.addresses.findIndex(a => a.id === addressId);
+    if (addressIndex === -1) return null;
+    
+    customer.addresses[addressIndex] = { ...customer.addresses[addressIndex], ...updates };
+    this.notify();
+    return customer.addresses[addressIndex];
+  }
+
+  deleteCustomerAddress(customerId: string, addressId: string) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return false;
+    
+    const addressIndex = customer.addresses.findIndex(a => a.id === addressId);
+    if (addressIndex === -1) return false;
+    
+    customer.addresses.splice(addressIndex, 1);
+    this.notify();
+    return true;
+  }
+
+  // Customer Identities
+  linkCustomerIdentity(customerId: string, identity: Partial<CustomerIdentity>) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return null;
+    
+    const newIdentity: CustomerIdentity = {
+      id: `id-${Date.now()}`,
+      provider: identity.provider || '',
+      provider_user_id: identity.provider_user_id || '',
+      verification_status: identity.verification_status || 'UNVERIFIED',
+    };
+    
+    customer.identities.push(newIdentity);
+    this.notify();
+    return newIdentity;
+  }
+
+  unlinkCustomerIdentity(customerId: string, identityId: string) {
+    const customer = this.getCustomer(customerId);
+    if (!customer) return false;
+    
+    const identityIndex = customer.identities.findIndex(i => i.id === identityId);
+    if (identityIndex === -1) return false;
+    
+    customer.identities.splice(identityIndex, 1);
+    this.notify();
+    return true;
   }
 
   // Categories
@@ -455,6 +597,36 @@ class MockStore {
   // Agents
   getAgents() {
     return this.agents;
+  }
+
+  getAgent(id: string) {
+    return this.agents.find(a => a.id === id);
+  }
+
+  createAgent(agent: Partial<Agent>) {
+    const newAgent: Agent = {
+      id: `ag-${Date.now()}`,
+      tenant_id: agent.tenant_id || 'ten-1',
+      user_id: agent.user_id || `user-${Date.now()}`,
+      display_name: agent.display_name || '',
+      avatar_url: agent.avatar_url,
+      timezone: agent.timezone || 'Asia/Tehran',
+      language: agent.language || 'fa',
+      max_active_tickets: agent.max_active_tickets || 20,
+      presence: agent.presence || 'OFFLINE',
+      status: agent.status || 'ACTIVE',
+    };
+    this.agents.push(newAgent);
+    this.notify();
+    return newAgent;
+  }
+
+  updateAgent(id: string, updates: Partial<Agent>) {
+    const index = this.agents.findIndex(a => a.id === id);
+    if (index === -1) return null;
+    this.agents[index] = { ...this.agents[index], ...updates };
+    this.notify();
+    return this.agents[index];
   }
 
   // SLA Policies
@@ -596,6 +768,153 @@ class MockStore {
     return true;
   }
 
+  // Automations
+  getAutomations() {
+    return this.automations;
+  }
+
+  getAutomation(id: string) {
+    return this.automations.find(a => a.id === id);
+  }
+
+  createAutomation(automation: Partial<Automation>) {
+    const newAutomation: Automation = {
+      id: `au-${Date.now()}`,
+      name: automation.name || '',
+      trigger_event: automation.trigger_event || 'ticket.created',
+      conditions: automation.conditions || [],
+      actions: automation.actions || [],
+      status: automation.status || 'ACTIVE',
+      created_at: new Date().toISOString(),
+    };
+    this.automations.push(newAutomation);
+    this.notify();
+    return newAutomation;
+  }
+
+  updateAutomation(id: string, updates: Partial<Automation>) {
+    const index = this.automations.findIndex(a => a.id === id);
+    if (index === -1) return null;
+    this.automations[index] = { ...this.automations[index], ...updates };
+    this.notify();
+    return this.automations[index];
+  }
+
+  // API Clients
+  getAPIClients() {
+    return this.apiClients;
+  }
+
+  getAPIClient(id: string) {
+    return this.apiClients.find(c => c.id === id);
+  }
+
+  createAPIClient(client: Partial<APIClient>) {
+    const newClient: APIClient = {
+      id: `client-${Date.now()}`,
+      name: client.name || '',
+      client_id: `cli_${Math.random().toString(36).substring(2, 15)}`,
+      client_secret: `sec_${Math.random().toString(36).substring(2, 30)}`,
+      scopes: client.scopes || [],
+      status: 'ACTIVE',
+      created_at: new Date().toISOString(),
+    };
+    this.apiClients.push(newClient);
+    this.notify();
+    return newClient;
+  }
+
+  updateAPIClient(id: string, updates: Partial<APIClient>) {
+    const index = this.apiClients.findIndex(c => c.id === id);
+    if (index === -1) return null;
+    this.apiClients[index] = { ...this.apiClients[index], ...updates };
+    this.notify();
+    return this.apiClients[index];
+  }
+
+  rotateAPIClientSecret(id: string) {
+    const client = this.getAPIClient(id);
+    if (!client) return null;
+    const newSecret = `sec_${Math.random().toString(36).substring(2, 30)}`;
+    this.apiClients = this.apiClients.map(c => 
+      c.id === id ? { ...c, client_secret: newSecret } : c
+    );
+    this.notify();
+    return newSecret;
+  }
+
+  // Webhooks
+  getWebhooks() {
+    return this.webhooks;
+  }
+
+  getWebhook(id: string) {
+    return this.webhooks.find(w => w.id === id);
+  }
+
+  createWebhook(webhook: Partial<Webhook>) {
+    const newWebhook: Webhook = {
+      id: `wh-${Date.now()}`,
+      name: webhook.name || '',
+      url: webhook.url || '',
+      events: webhook.events || [],
+      status: webhook.status || 'ACTIVE',
+      deliveries: [],
+      created_at: new Date().toISOString(),
+    };
+    this.webhooks.push(newWebhook);
+    this.notify();
+    return newWebhook;
+  }
+
+  updateWebhook(id: string, updates: Partial<Webhook>) {
+    const index = this.webhooks.findIndex(w => w.id === id);
+    if (index === -1) return null;
+    this.webhooks[index] = { ...this.webhooks[index], ...updates };
+    this.notify();
+    return this.webhooks[index];
+  }
+
+  addWebhookDelivery(webhookId: string, delivery: any) {
+    const webhook = this.getWebhook(webhookId);
+    if (!webhook) return null;
+    const newDelivery = {
+      id: `del-${Date.now()}`,
+      webhook_id: webhookId,
+      event: delivery.event,
+      status: delivery.status,
+      attempts: delivery.attempts || 1,
+      response_code: delivery.response_code,
+      response_body: delivery.response_body,
+      created_at: new Date().toISOString(),
+    };
+    webhook.deliveries.unshift(newDelivery);
+    this.notify();
+    return newDelivery;
+  }
+
+  // Audit Logs
+  getAuditLogs() {
+    return this.auditLogs;
+  }
+
+  addAuditLog(log: Partial<AuditLog>) {
+    const newLog: AuditLog = {
+      id: `log-${Date.now()}`,
+      actor_id: log.actor_id || 'u-001',
+      actor_name: log.actor_name || 'Unknown',
+      action: log.action || 'CREATE',
+      entity_type: log.entity_type || '',
+      entity_id: log.entity_id || '',
+      metadata: log.metadata || {},
+      ip_address: log.ip_address || '127.0.0.1',
+      created_at: new Date().toISOString(),
+    };
+    this.auditLogs.unshift(newLog);
+    this.notify();
+    return newLog;
+  }
+
   // Topics
   getTopics() {
     return this.topics;
@@ -627,6 +946,108 @@ class MockStore {
     this.topics[index] = { ...this.topics[index], ...updates };
     this.notify();
     return this.topics[index];
+  }
+
+  // Knowledge Bases
+  getKnowledgeBases() {
+    return this.knowledgeBases;
+  }
+
+  getKnowledgeBase(id: string) {
+    return this.knowledgeBases.find(kb => kb.id === id);
+  }
+
+  createKnowledgeBase(kb: Partial<KnowledgeBase>) {
+    const newKB: KnowledgeBase = {
+      id: `kb-${Date.now()}`,
+      name: kb.name || '',
+      scope: kb.scope || 'TENANT',
+      product_id: kb.product_id,
+      status: kb.status || 'ACTIVE',
+      articles_count: 0,
+    };
+    this.knowledgeBases.push(newKB);
+    this.notify();
+    return newKB;
+  }
+
+  updateKnowledgeBase(id: string, updates: Partial<KnowledgeBase>) {
+    const index = this.knowledgeBases.findIndex(kb => kb.id === id);
+    if (index === -1) return null;
+    this.knowledgeBases[index] = { ...this.knowledgeBases[index], ...updates };
+    this.notify();
+    return this.knowledgeBases[index];
+  }
+
+  // Articles
+  getArticles() {
+    return this.articles;
+  }
+
+  getArticle(id: string) {
+    return this.articles.find(a => a.id === id);
+  }
+
+  getArticlesByKB(kbId: string) {
+    return this.articles.filter(a => a.kb_id === kbId);
+  }
+
+  getPublishedArticles() {
+    return this.articles.filter(a => a.status === 'PUBLISHED');
+  }
+
+  createArticle(article: Partial<Article>) {
+    const newArticle: Article = {
+      id: `art-${Date.now()}`,
+      kb_id: article.kb_id || '',
+      title: article.title || '',
+      slug: article.slug || article.title?.toLowerCase().replace(/\s+/g, '-') || '',
+      content: article.content || '',
+      summary: article.summary,
+      status: article.status || 'DRAFT',
+      visibility: article.visibility || 'BOTH',
+      tags: article.tags || [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.articles.push(newArticle);
+    
+    // Update KB articles count
+    const kb = this.getKnowledgeBase(newArticle.kb_id);
+    if (kb) {
+      kb.articles_count++;
+    }
+    
+    this.notify();
+    return newArticle;
+  }
+
+  updateArticle(id: string, updates: Partial<Article>) {
+    const index = this.articles.findIndex(a => a.id === id);
+    if (index === -1) return null;
+    
+    const oldStatus = this.articles[index].status;
+    this.articles[index] = { 
+      ...this.articles[index], 
+      ...updates, 
+      updated_at: new Date().toISOString() 
+    };
+    
+    // Update KB articles count if status changed
+    if (updates.status && updates.status !== oldStatus) {
+      const article = this.articles[index];
+      const kb = this.getKnowledgeBase(article.kb_id);
+      if (kb) {
+        if (updates.status === 'PUBLISHED' && oldStatus !== 'PUBLISHED') {
+          kb.articles_count++;
+        } else if (updates.status !== 'PUBLISHED' && oldStatus === 'PUBLISHED') {
+          kb.articles_count--;
+        }
+      }
+    }
+    
+    this.notify();
+    return this.articles[index];
   }
 
   // Tenants
@@ -676,6 +1097,120 @@ class MockStore {
 
   getTeamsByCategory(categoryId: string) {
     return this.teams.filter(t => t.category_id === categoryId && t.scope === 'CATEGORY');
+  }
+
+  // Search
+  search(params: { q: string; mode: 'KEYWORD' | 'SEMANTIC' | 'HYBRID'; filters?: any }) {
+    const { q, mode, filters } = params;
+    
+    // Combine all searchable entities
+    const tickets = this.tickets.map(t => ({
+      id: t.id,
+      type: 'ticket' as const,
+      title: `${t.ticket_number} - ${t.subject}`,
+      snippet: t.description || t.subject,
+      url: `/desk/tickets/${t.id}`,
+      product_id: t.product_id,
+      status: t.status,
+      department_id: t.department_id,
+      created_at: t.created_at,
+    }));
+
+    const articles = this.articles
+      .filter(a => a.status === 'PUBLISHED')
+      .map(a => ({
+        id: a.id,
+        type: 'article' as const,
+        title: a.title,
+        snippet: a.summary || a.content.substring(0, 200),
+        url: `/desk/knowledge/articles/${a.id}`,
+      }));
+
+    const customers = this.customers.map(c => ({
+      id: c.id,
+      type: 'customer' as const,
+      title: c.display_name,
+      snippet: c.profile.email || c.profile.mobile || '',
+      url: `/desk/customers/${c.id}`,
+    }));
+
+    let allResults = [...tickets, ...articles, ...customers];
+
+    // Apply filters
+    if (filters) {
+      if (filters.product) {
+        allResults = allResults.filter(r => (r as any).product_id === filters.product);
+      }
+      if (filters.status) {
+        allResults = allResults.filter(r => (r as any).status === filters.status);
+      }
+      if (filters.department) {
+        allResults = allResults.filter(r => (r as any).department_id === filters.department);
+      }
+      if (filters.date_from) {
+        allResults = allResults.filter(r => new Date((r as any).created_at) >= new Date(filters.date_from));
+      }
+      if (filters.date_to) {
+        allResults = allResults.filter(r => new Date((r as any).created_at) <= new Date(filters.date_to));
+      }
+    }
+
+    // Filter by query
+    if (q) {
+      allResults = allResults.filter(r => 
+        r.title.toLowerCase().includes(q.toLowerCase()) ||
+        r.snippet.toLowerCase().includes(q.toLowerCase())
+      );
+    }
+
+    // Apply mode-specific scoring
+    const results = allResults.map(r => {
+      let score = 0.5; // base score
+      
+      if (q) {
+        // Keyword mode: exact match scoring
+        if (mode === 'KEYWORD') {
+          const titleMatch = r.title.toLowerCase().includes(q.toLowerCase());
+          const snippetMatch = r.snippet.toLowerCase().includes(q.toLowerCase());
+          score = (titleMatch ? 0.9 : 0.5) + (snippetMatch ? 0.1 : 0);
+        }
+        // Semantic mode: simulated semantic similarity (randomized but consistent)
+        else if (mode === 'SEMANTIC') {
+          const hash = (r.title + q).split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a;
+          }, 0);
+          score = 0.6 + (Math.abs(hash) % 40) / 100;
+        }
+        // Hybrid mode: blend of keyword and semantic
+        else {
+          const titleMatch = r.title.toLowerCase().includes(q.toLowerCase());
+          const snippetMatch = r.snippet.toLowerCase().includes(q.toLowerCase());
+          const keywordScore = (titleMatch ? 0.9 : 0.5) + (snippetMatch ? 0.1 : 0);
+          const hash = (r.title + q).split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a;
+          }, 0);
+          const semanticScore = 0.6 + (Math.abs(hash) % 40) / 100;
+          score = (keywordScore + semanticScore) / 2;
+        }
+      }
+
+      return {
+        ...r,
+        score: Math.min(score, 0.99),
+        mode_score: {
+          keyword: mode === 'KEYWORD' ? score : undefined,
+          semantic: mode === 'SEMANTIC' ? score : undefined,
+          hybrid: mode === 'HYBRID' ? score : undefined,
+        }
+      };
+    });
+
+    // Sort by score descending
+    results.sort((a, b) => b.score - a.score);
+
+    return results;
   }
 }
 

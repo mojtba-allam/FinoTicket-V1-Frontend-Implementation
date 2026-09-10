@@ -54,20 +54,21 @@ export function Textarea({ label, error, className = '', rows = 4, onChange, ...
 }
 
 // ========== SELECT ==========
-export function Select({ label, options, className = '', value, onChange, placeholder, ...props }: {
+export function Select({ label, options, className = '', value, onChange, placeholder, error, ...props }: {
   label?: string; options: { value: string; label: string }[]; className?: string;
-  value?: string; onChange?: (v: string) => void; placeholder?: string; [key: string]: any;
+  value?: string; onChange?: (v: string) => void; placeholder?: string; error?: string; [key: string]: any;
 }) {
   return (
     <div className={`space-y-1 ${className}`}>
       {label && <label className="block text-sm font-medium text-text-secondary">{label}</label>}
       <div className="relative">
-        <select value={value} onChange={e => onChange?.(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-white px-3 py-2 text-sm transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500" {...props}>
+        <select value={value} onChange={e => onChange?.(e.target.value)} className={`w-full appearance-none rounded-lg border bg-white px-3 py-2 text-sm transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500 ${error ? 'border-danger-500' : 'border-border'}`} {...props}>
           {placeholder && <option value="">{placeholder}</option>}
           {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
       </div>
+      {error && <p className="text-xs text-danger-500">{error}</p>}
     </div>
   );
 }

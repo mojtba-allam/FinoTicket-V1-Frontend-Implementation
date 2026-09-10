@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate, useLocation, Navigate } from 'react-router-d
 import { LayoutDashboard, Inbox, Users, Search, BookOpen, BarChart3, LogOut, Menu, Package, Tags, Building2, UserCheck, Shield, Workflow, Zap, Globe, Webhook, FileSearch, Ticket as TicketIcon, Clock } from 'lucide-react';
 import { NotificationCenter } from '../components/NotificationCenter';
 import { PresenceSelect } from '../components/PresenceSelect';
+import { ImpersonationBanner } from '../components/ImpersonationBanner';
 import { useApp } from '../app/providers';
 import { mockProducts } from '../data/mock';
 
@@ -149,6 +150,9 @@ export default function DeskLayout() {
             </Link>
           </div>
         </header>
+
+        {/* Impersonation Banner */}
+        <ImpersonationBanner />
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto">

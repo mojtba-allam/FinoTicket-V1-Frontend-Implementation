@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Badge, SearchInput } from '../../components/ui';
-import { mockKnowledgeBases, mockArticles } from '../../data/mock';
+import { mockStore, useMockStore } from '../../lib/api/mockStore';
 import { useApp } from '../../app/providers';
 
 export default function KnowledgePage() {
   const { t, lang } = useApp();
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
+  useMockStore();
 
-  const filtered = mockArticles.filter(a => 
-    !search || a.title.includes(search) || a.content.includes(search)
+  const knowledgeBases = mockStore.getKnowledgeBases();
+  const publishedArticles = mockStore.getPublishedArticles();
+
+  const filtered = publishedArticles.filter(a => 
+    !search || 
+    a.title.toLowerCase().includes(search.toLowerCase()) ||
+    a.content.toLowerCase().includes(search.toLowerCase()) ||
+    a.tags.some(tag => tag.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -34,7 +41,7 @@ export default function KnowledgePage() {
             {lang === 'fa' ? 'پایگاه‌های دانش' : 'Knowledge Bases'}
           </h2>
           <div className="space-y-3">
-            {mockKnowledgeBases.map(kb => (
+            {knowledgeBases.map((kb: any) => (
               <Card key={kb.id}>
                 <div className="flex items-center justify-between">
                   <div>

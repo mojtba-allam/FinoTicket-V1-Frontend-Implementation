@@ -203,7 +203,7 @@ export const mockAIAnalyses: AIAnalysis[] = [
 ];
 
 export const mockAISuggestions: AISuggestion[] = [
-  { id: 'ais-1', ticket_id: 't-001', type: 'REPLY', content: 'سلام سارا خانم، مشکل شما شناسایی شد. لطفاً کش مرورگر خود را پاک کنید و مجدداً تلاش نمایید. در صورت ادامه مشکل، اطلاعات بیشتری ارائه دهید.', confidence: 0.78, status: 'PENDING', sources: [{ title: 'نحوه بازیابی رمز عبور', url: '#' }], created_at: '2024-12-20T10:10:00Z' },
+  { id: 'ais-1', ticket_id: 't-001', type: 'REPLY', content: 'سلام سارا خانم، مشکل شما شناسایی شد. لطفاً کش مرورگر خود را پاک کنید و مجدداً تلاش نمایید. در صورت ادامه مشکل، اطلاعات بیشتری ارائه دهید.', confidence: 0.78, status: 'PENDING', sources: [{ title: 'نحوه بازیابی رمز عبور', url: '#', article_id: 'art-1' }], created_at: '2024-12-20T10:10:00Z' },
   { id: 'ais-2', ticket_id: 't-001', type: 'CATEGORY', content: 'احراز هویت > ورود', confidence: 0.91, status: 'PENDING', created_at: '2024-12-20T10:10:00Z' },
   { id: 'ais-3', ticket_id: 't-001', type: 'PRIORITY', content: 'HIGH', confidence: 0.88, status: 'ACCEPTED', created_at: '2024-12-20T10:10:00Z' },
 ];
