@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { Button, Select, Badge } from './ui';
-import { mockProducts, mockCategories, mockDepartments, mockTeams, mockAgents } from '../data/mock';
+import { mockProducts, mockCategories, mockDepartments, mockTeams, mockAgents, mockTopics } from '../data/mock';
 import { fa, en, type Lang } from '../i18n';
 
 export interface TicketFilters {
@@ -10,6 +10,7 @@ export interface TicketFilters {
   priority?: string;
   product?: string;
   category?: string;
+  topic?: string;
   department?: string;
   team?: string;
   assignee?: string;
@@ -93,6 +94,16 @@ export function FilterBar({ filters, onChange, onClear, lang = 'fa' }: FilterBar
           ]}
           value={filters.category || ''}
           onChange={v => updateFilter('category', v)}
+        />
+
+        <Select
+          label={lang === 'fa' ? 'موضوع' : 'Topic'}
+          options={[
+            { value: '', label: lang === 'fa' ? 'همه' : 'All' },
+            ...mockTopics.map(t => ({ value: t.id, label: t.name }))
+          ]}
+          value={filters.topic || ''}
+          onChange={v => updateFilter('topic', v)}
         />
 
         <Select
@@ -234,10 +245,26 @@ export function FilterBar({ filters, onChange, onClear, lang = 'fa' }: FilterBar
               </button>
             </Badge>
           )}
+          {filters.topic && (
+            <Badge variant="brand">
+              {lang === 'fa' ? 'موضوع' : 'Topic'}: {mockTopics.find(t => t.id === filters.topic)?.name}
+              <button onClick={() => removeFilter('topic')} className="mr-1 hover:text-brand-800">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
           {filters.department && (
             <Badge variant="brand">
               {lang === 'fa' ? 'دپارتمان' : 'Department'}: {mockDepartments.find(d => d.id === filters.department)?.name}
               <button onClick={() => removeFilter('department')} className="mr-1 hover:text-brand-800">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.team && (
+            <Badge variant="brand">
+              {lang === 'fa' ? 'تیم' : 'Team'}: {mockTeams.find(t => t.id === filters.team)?.name}
+              <button onClick={() => removeFilter('team')} className="mr-1 hover:text-brand-800">
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -313,6 +340,7 @@ export function useTicketFilters(): [TicketFilters, (filters: TicketFilters) => 
     priority: searchParams.get('priority') || undefined,
     product: searchParams.get('product') || undefined,
     category: searchParams.get('category') || undefined,
+    topic: searchParams.get('topic') || undefined,
     department: searchParams.get('department') || undefined,
     team: searchParams.get('team') || undefined,
     assignee: searchParams.get('assignee') || undefined,

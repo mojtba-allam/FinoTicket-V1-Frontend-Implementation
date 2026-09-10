@@ -6,6 +6,7 @@ import { Toast } from '../components/ui';
 
 interface AppContextType {
   user: typeof mockUser;
+  setUser: (user: typeof mockUser) => void;
   lang: Lang;
   t: Translations;
   setLang: (l: Lang) => void;
@@ -21,6 +22,7 @@ export const AppContext = createContext<AppContextType>({} as AppContextType);
 export const useApp = () => useContext(AppContext);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState(mockUser);
   const [lang, setLang] = useState<Lang>('fa');
   const [product, setProduct] = useState(mockProducts[0]);
   const [presence, setPresence] = useState<Presence>('ONLINE');
@@ -36,7 +38,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const showToast = (msg: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => setToast({ msg, type });
 
   return (
-    <AppContext.Provider value={{ user: mockUser, lang, t, setLang, product, setProduct, presence, setPresence, showToast }}>
+    <AppContext.Provider value={{ user, setUser, lang, t, setLang, product, setProduct, presence, setPresence, showToast }}>
       {children}
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
     </AppContext.Provider>

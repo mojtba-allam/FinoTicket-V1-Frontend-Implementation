@@ -33,43 +33,6 @@ export function AdminDepartmentsPage() {
   );
 }
 
-export function AdminTeamsPage() {
-  const { t, lang } = useApp();
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{t.admin.teams}</h1>
-      <div className="space-y-4">
-        {mockTeams.map(team => (
-          <Card key={team.id}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-semibold">{team.name}</h3>
-                <p className="text-xs text-text-muted">{team.department_name} • {team.slug}</p>
-              </div>
-              <Badge variant={team.status === 'ACTIVE' ? 'success' : 'default'}>
-                {team.status === 'ACTIVE' ? (lang === 'fa' ? 'فعال' : 'Active') : (lang === 'fa' ? 'غیرفعال' : 'Inactive')}
-              </Badge>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {team.members.map(m => (
-                <div key={m.user_id} className="flex items-center gap-2 px-3 py-1.5 bg-surface-alt rounded-lg text-sm">
-                  <div className="h-6 w-6 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs">
-                    {m.user_name.charAt(0)}
-                  </div>
-                  <span>{m.user_name}</span>
-                  <Badge variant={m.role === 'LEAD' ? 'brand' : 'default'}>
-                    {m.role === 'LEAD' ? (lang === 'fa' ? 'رهبر' : 'Lead') : (lang === 'fa' ? 'عضو' : 'Member')}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function AdminAgentsPage() {
   const { t, lang } = useApp();
   return (

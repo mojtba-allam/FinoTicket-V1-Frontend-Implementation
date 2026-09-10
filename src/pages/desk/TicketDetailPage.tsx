@@ -35,6 +35,11 @@ export default function TicketDetailPage() {
   const [tags, setTags] = useState<string[]>(ticket?.tags || []);
   const [watchers, setWatchers] = useState<string[]>(ticket?.watchers || []);
   const [suggestions, setSuggestions] = useState(mockAISuggestions.filter(s => s.ticket_id === id));
+  
+  // Cascading assign state
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(ticket?.department_id || '');
+  const [selectedTeamId, setSelectedTeamId] = useState(ticket?.team_id || '');
+  const [selectedAgentId, setSelectedAgentId] = useState(ticket?.assignee_id || '');
 
   // Sort history events by timestamp (newest first)
   const sortedHistoryEvents = useMemo(() => {
@@ -51,10 +56,85 @@ export default function TicketDetailPage() {
 
   const analyses = mockAIAnalyses.filter(a => a.ticket_id === id);
 
-  const handleAssign = (assignee_id: string, assignee_name: string) => {
-    mockStore.assignTicket(ticket.id, assignee_id, assignee_name);
-    showToast(lang === 'fa' ? 'تیکت ارجاع شد' : 'Ticket assigned');
+  // Get available departments for this product
+  const availableDepartments = useMemo(() => {
+    return mockStore.getDepartmentsByProduct(ticket.product_id);
+  }, [ticket.product_id]);
+
+  // Get available teams based on selected department
+  const availableTeams = useMemo(() => {
+    if (!selectedDepartmentId) return [];
+    
+    // Get all teams for this department (both DEPARTMENT and CATEGORY scoped)
+    const deptTeams = mockStore.getTeamsByDepartment(selectedDepartmentId);
+    
+    // If ticket has a category, also include category-scoped teams for that category
+    if (ticket.category_id) {
+      const categoryTeams = mockStore.getTeamsByCategory(ticket.category_id);
+      // Combine and deduplicate
+      const allTeams = [...deptTeams, ...categoryTeams];
+      const uniqueTeams = allTeams.filter((team, index, self) => 
+        index === self.findIndex(t => t.id === team.id)
+      );
+      return uniqueTeams;
+    }
+    
+    return deptTeams;
+  }, [selectedDepartmentId, ticket.category_id]);
+
+  // Get available agents based on selected team
+  const availableAgents = useMemo(() => {
+    if (!selectedTeamId) return [];
+    
+    const team = mockStore.getTeam(selectedTeamId);
+    if (!team) return [];
+    
+    // Get agents who are members of this team
+    return mockStore.getAgents().filter(agent => 
+      team.members.some(member => member.user_id === agent.user_id)
+    );
+  }, [selectedTeamId]);
+
+  // Handle department change - clear team and agent
+  const handleDepartmentChange = (deptId: string) => {
+    setSelectedDepartmentId(deptId);
+    setSelectedTeamId('');
+    setSelectedAgentId('');
+  };
+
+  // Handle team change - clear agent
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeamId(teamId);
+    setSelectedAgentId('');
+  };
+
+  const handleAssign = () => {
+    const department = selectedDepartmentId 
+      ? mockStore.getDepartment(selectedDepartmentId) 
+      : null;
+    const team = selectedTeamId 
+      ? mockStore.getTeam(selectedTeamId) 
+      : null;
+    const agent = selectedAgentId 
+      ? mockStore.getAgents().find(a => a.user_id === selectedAgentId)
+      : null;
+
+    mockStore.assignCascade(ticket.id, {
+      department_id: department?.id,
+      department_name: department?.name,
+      team_id: team?.id,
+      team_name: team?.name,
+      assignee_id: agent?.user_id,
+      assignee_name: agent?.display_name,
+    });
+    
+    showToast(lang === 'fa' ? 'تیکت ارجاع شد' : 'Ticket assigned', 'success');
     setShowAssignModal(false);
+    
+    // Reset cascade state
+    setSelectedDepartmentId('');
+    setSelectedTeamId('');
+    setSelectedAgentId('');
   };
 
   const handleStatusChange = (status: any) => {
@@ -374,26 +454,65 @@ export default function TicketDetailPage() {
         </div>
       </div>
 
-      {/* Assign Modal */}
+      {/* Assign Modal - Cascading */}
       <Modal open={showAssignModal} onClose={() => setShowAssignModal(false)} title={lang === 'fa' ? 'ارجاع تیکت' : 'Assign Ticket'}>
         <div className="space-y-4">
-          <Select 
-            label={lang === 'fa' ? 'کارشناس' : 'Agent'}
-            options={mockAgents.map(a => ({ value: a.user_id, label: a.display_name }))} 
-            placeholder={lang === 'fa' ? 'انتخاب کارشناس' : 'Select agent'}
-          />
-          <Select 
-            label={lang === 'fa' ? 'تیم' : 'Team'}
-            options={mockTeams.map(t => ({ value: t.id, label: t.name }))} 
-            placeholder={lang === 'fa' ? 'انتخاب تیم' : 'Select team'}
-          />
+          {/* Department Select */}
           <Select 
             label={lang === 'fa' ? 'دپارتمان' : 'Department'}
-            options={mockDepartments.map(d => ({ value: d.id, label: d.name }))} 
-            placeholder={lang === 'fa' ? 'انتخاب دپارتمان' : 'Select department'}
+            options={[
+              { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+              ...availableDepartments.map(d => ({ value: d.id, label: d.name }))
+            ]} 
+            value={selectedDepartmentId}
+            onChange={handleDepartmentChange}
           />
+
+          {/* Team Select - filtered by department */}
+          <Select 
+            label={lang === 'fa' ? 'تیم' : 'Team'}
+            options={[
+              { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+              ...availableTeams.map(t => ({ 
+                value: t.id, 
+                label: `${t.name} (${t.scope === 'DEPARTMENT' ? (lang === 'fa' ? 'دپارتمان' : 'Dept') : (lang === 'fa' ? 'دسته' : 'Cat')})` 
+              }))
+            ]} 
+            value={selectedTeamId}
+            onChange={handleTeamChange}
+            disabled={!selectedDepartmentId}
+          />
+
+          {/* Agent Select - filtered by team */}
+          <Select 
+            label={lang === 'fa' ? 'کارشناس' : 'Agent'}
+            options={[
+              { value: '', label: lang === 'fa' ? 'انتخاب کنید' : 'Select' },
+              ...availableAgents.map(a => ({ value: a.user_id, label: a.display_name }))
+            ]} 
+            value={selectedAgentId}
+            onChange={setSelectedAgentId}
+            disabled={!selectedTeamId}
+          />
+
+          {!selectedDepartmentId && (
+            <p className="text-xs text-text-muted">
+              {lang === 'fa' ? 'ابتدا دپارتمان را انتخاب کنید' : 'Select a department first'}
+            </p>
+          )}
+          {selectedDepartmentId && !selectedTeamId && (
+            <p className="text-xs text-text-muted">
+              {lang === 'fa' ? 'تیمی را انتخاب کنید' : 'Select a team'}
+            </p>
+          )}
+          {selectedTeamId && availableAgents.length === 0 && (
+            <p className="text-xs text-warning-600">
+              {lang === 'fa' ? 'این تیم هیچ عضوی ندارد' : 'This team has no members'}
+            </p>
+          )}
+
           <div className="flex gap-3 pt-4">
-            <Button onClick={() => handleAssign('u-001', 'علی محمدی')}>
+            <Button onClick={handleAssign} disabled={!selectedDepartmentId}>
               {lang === 'fa' ? 'ارجاع' : 'Assign'}
             </Button>
             <Button variant="secondary" onClick={() => setShowAssignModal(false)}>

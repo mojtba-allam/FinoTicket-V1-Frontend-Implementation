@@ -1,15 +1,47 @@
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, Product, SLAPolicy, KnowledgeBase, Article, Webhook, APIClient, AuditLog, AIAnalysis, AISuggestion, SearchResult, AnalyticsData, User } from '../types';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, Product, SLAPolicy, KnowledgeBase, Article, Webhook, APIClient, AuditLog, AIAnalysis, AISuggestion, SearchResult, AnalyticsData, User, Tenant, Topic } from '../types';
 
+// Tenants
+export const mockTenants: Tenant[] = [
+  { id: 'ten-1', name: 'شرکت فینو', slug: 'fino-company', status: 'ACTIVE', owner_user_id: 'u-001', created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' },
+  { id: 'ten-2', name: 'شرکت آزمایشی', slug: 'test-company', status: 'SUSPENDED', owner_user_id: 'u-010', created_at: '2024-02-01T00:00:00Z', updated_at: '2024-06-01T00:00:00Z' },
+];
+
+// Users
 export const mockUser: User = {
-  id: 'u-001', email: 'admin@finoticket.ir', display_name: 'علی محمدی',
-  role: 'ADMIN', presence: 'ONLINE', timezone: 'Asia/Tehran', language: 'fa',
-  status: 'ACTIVE', created_at: '2024-01-01T00:00:00Z', avatar_url: '',
+  id: 'u-001',
+  tenant_id: 'ten-1',
+  console: 'tenant',
+  email: 'admin@finoticket.ir',
+  display_name: 'علی محمدی',
+  role: 'ADMIN',
+  presence: 'ONLINE',
+  timezone: 'Asia/Tehran',
+  language: 'fa',
+  status: 'ACTIVE',
+  created_at: '2024-01-01T00:00:00Z',
+  avatar_url: '',
 };
 
+export const mockPlatformUser: User = {
+  id: 'u-platform-001',
+  tenant_id: undefined,
+  console: 'platform',
+  email: 'super@fino.local',
+  display_name: 'Super Admin',
+  role: 'PLATFORM_OWNER',
+  presence: 'ONLINE',
+  timezone: 'Asia/Tehran',
+  language: 'fa',
+  status: 'ACTIVE',
+  created_at: '2024-01-01T00:00:00Z',
+  avatar_url: '',
+};
+
+// Products (under tenant)
 export const mockProducts: Product[] = [
-  { id: 'p-001', name: 'فینوپال', slug: 'finopal', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'EMAIL', 'API'], widget_branding: { primary_color: '#0B7C8C', welcome_text: 'سلام! چطور می‌تونیم کمکتون کنیم؟', title: 'پشتیبانی فینوپال' }, created_at: '2024-01-01' },
-  { id: 'p-002', name: 'فینوآی‌دی', slug: 'finoid', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'CHAT'], widget_branding: { primary_color: '#0891B2', welcome_text: 'پشتیبانی هویت دیجیتال', title: 'پشتیبانی فینوآی‌دی' }, created_at: '2024-02-01' },
-  { id: 'p-003', name: 'فینوبیت', slug: 'finobit', status: 'SUSPENDED', settings: {}, channels: ['WEB', 'EMAIL'], created_at: '2024-03-01' },
+  { id: 'p-001', tenant_id: 'ten-1', name: 'فینوپال', slug: 'finopal', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'EMAIL', 'API'], widget_branding: { primary_color: '#0B7C8C', welcome_text: 'سلام! چطور می‌تونیم کمکتون کنیم؟', title: 'پشتیبانی فینوپال' }, created_at: '2024-01-01' },
+  { id: 'p-002', tenant_id: 'ten-1', name: 'فینوآی‌دی', slug: 'finoid', status: 'ACTIVE', settings: {}, channels: ['WEB', 'WIDGET', 'CHAT'], widget_branding: { primary_color: '#0891B2', welcome_text: 'پشتیبانی هویت دیجیتال', title: 'پشتیبانی فینوآی‌دی' }, created_at: '2024-02-01' },
+  { id: 'p-003', tenant_id: 'ten-1', name: 'فینوبیت', slug: 'finobit', status: 'SUSPENDED', settings: {}, channels: ['WEB', 'EMAIL'], created_at: '2024-03-01' },
 ];
 
 export const mockCustomers: Customer[] = [
@@ -18,13 +50,14 @@ export const mockCustomers: Customer[] = [
   { id: 'c-003', display_name: 'مریم حسینی', status: 'INACTIVE', profile: { first_name: 'مریم', last_name: 'حسینی', email: 'maryam@example.com' }, identities: [{ id: 'id-2', provider: 'FINOPAL', provider_user_id: 'fp-456', verification_status: 'UNVERIFIED' }], addresses: [], tags: ['تست'], created_at: '2024-03-10' },
 ];
 
+// Tickets (under tenant)
 export const mockTickets: Ticket[] = [
-  { id: 't-001', ticket_number: 'FT-1001', subject: 'مشکل در ورود به حساب کاربری', description: 'کاربر نمی‌تواند وارد حساب شود', status: 'OPEN', priority: 'HIGH', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-001', customer_name: 'سارا احمدی', category_id: 'cat-1', category_name: 'احراز هویت', department_id: 'd-1', department_name: 'فنی', team_id: 'tm-1', team_name: 'پشتیبانی فنی', assignee_id: 'u-001', assignee_name: 'علی محمدی', channel: 'WEB', source: 'widget', tags: ['login', 'urgent'], watchers: ['u-001', 'u-002'], sla_policy_id: 'sla-1', sla_status: 'WARNING', sla_first_response_due: '2024-12-20T14:00:00Z', created_at: '2024-12-20T10:00:00Z', updated_at: '2024-12-20T12:00:00Z' },
-  { id: 't-002', ticket_number: 'FT-1002', subject: 'درخواست تغییر شماره موبایل', status: 'IN_PROGRESS', priority: 'NORMAL', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-002', customer_name: 'رضا کریمی', category_id: 'cat-2', category_name: 'حساب کاربری', department_id: 'd-1', department_name: 'فنی', assignee_id: 'u-001', assignee_name: 'علی محمدی', channel: 'EMAIL', source: 'email', tags: [], watchers: ['u-001'], sla_status: 'ON_TRACK', created_at: '2024-12-19T08:00:00Z', updated_at: '2024-12-20T09:00:00Z' },
-  { id: 't-003', ticket_number: 'FT-1003', subject: 'خطای ۵۰۰ در صفحه پرداخت', status: 'OPEN', priority: 'CRITICAL', product_id: 'p-002', product_name: 'فینوآی‌دی', customer_id: 'c-003', customer_name: 'مریم حسینی', category_id: 'cat-3', category_name: 'پرداخت', department_id: 'd-2', department_name: 'مالی', channel: 'WIDGET', source: 'widget', tags: ['bug', 'payment'], watchers: [], sla_status: 'BREACHED', sla_first_response_due: '2024-12-19T10:00:00Z', created_at: '2024-12-19T09:00:00Z', updated_at: '2024-12-19T09:00:00Z' },
-  { id: 't-004', ticket_number: 'FT-1004', subject: 'سوال درباره کارمزد انتقال', status: 'WAITING_CUSTOMER', priority: 'LOW', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-001', customer_name: 'سارا احمدی', category_id: 'cat-4', category_name: 'عمومی', channel: 'CHAT', source: 'chat', tags: [], watchers: [], sla_status: 'ON_TRACK', created_at: '2024-12-18T14:00:00Z', updated_at: '2024-12-19T16:00:00Z' },
-  { id: 't-005', ticket_number: 'FT-1005', subject: 'درخواست حذف حساب', status: 'RESOLVED', priority: 'NORMAL', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-002', customer_name: 'رضا کریمی', category_id: 'cat-2', category_name: 'حساب کاربری', assignee_id: 'u-002', assignee_name: 'فاطمه رضایی', channel: 'WEB', source: 'web', tags: [], watchers: [], sla_status: 'ON_TRACK', resolved_at: '2024-12-17T12:00:00Z', created_at: '2024-12-15T10:00:00Z', updated_at: '2024-12-17T12:00:00Z' },
-  { id: 't-006', ticket_number: 'FT-1006', subject: 'عدم دریافت کد تایید پیامکی', status: 'OPEN', priority: 'HIGH', product_id: 'p-002', product_name: 'فینوآی‌دی', customer_id: 'c-003', customer_name: 'مریم حسینی', category_id: 'cat-1', category_name: 'احراز هویت', channel: 'SMS', source: 'sms', tags: ['sms', 'otp'], watchers: [], sla_status: 'WARNING', created_at: '2024-12-20T11:00:00Z', updated_at: '2024-12-20T11:00:00Z' },
+  { id: 't-001', tenant_id: 'ten-1', ticket_number: 'FT-1001', subject: 'مشکل در ورود به حساب کاربری', description: 'کاربر نمی‌تواند وارد حساب شود', status: 'OPEN', priority: 'HIGH', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-001', customer_name: 'سارا احمدی', category_id: 'cat-1', category_name: 'احراز هویت', department_id: 'd-1', department_name: 'فنی', team_id: 'tm-1', team_name: 'پشتیبانی فنی', assignee_id: 'u-001', assignee_name: 'علی محمدی', channel: 'WEB', source: 'widget', tags: ['login', 'urgent'], watchers: ['u-001', 'u-002'], sla_policy_id: 'sla-1', sla_status: 'WARNING', sla_first_response_due: '2024-12-20T14:00:00Z', created_at: '2024-12-20T10:00:00Z', updated_at: '2024-12-20T12:00:00Z' },
+  { id: 't-002', tenant_id: 'ten-1', ticket_number: 'FT-1002', subject: 'درخواست تغییر شماره موبایل', status: 'IN_PROGRESS', priority: 'NORMAL', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-002', customer_name: 'رضا کریمی', category_id: 'cat-2', category_name: 'حساب کاربری', department_id: 'd-1', department_name: 'فنی', assignee_id: 'u-001', assignee_name: 'علی محمدی', channel: 'EMAIL', source: 'email', tags: [], watchers: ['u-001'], sla_status: 'ON_TRACK', created_at: '2024-12-19T08:00:00Z', updated_at: '2024-12-20T09:00:00Z' },
+  { id: 't-003', tenant_id: 'ten-1', ticket_number: 'FT-1003', subject: 'خطای ۵۰۰ در صفحه پرداخت', status: 'OPEN', priority: 'CRITICAL', product_id: 'p-002', product_name: 'فینوآی‌دی', customer_id: 'c-003', customer_name: 'مریم حسینی', category_id: 'cat-3', category_name: 'پرداخت', department_id: 'd-2', department_name: 'مالی', channel: 'WIDGET', source: 'widget', tags: ['bug', 'payment'], watchers: [], sla_status: 'BREACHED', sla_first_response_due: '2024-12-19T10:00:00Z', created_at: '2024-12-19T09:00:00Z', updated_at: '2024-12-19T09:00:00Z' },
+  { id: 't-004', tenant_id: 'ten-1', ticket_number: 'FT-1004', subject: 'سوال درباره کارمزد انتقال', status: 'WAITING_CUSTOMER', priority: 'LOW', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-001', customer_name: 'سارا احمدی', category_id: 'cat-4', category_name: 'عمومی', channel: 'CHAT', source: 'chat', tags: [], watchers: [], sla_status: 'ON_TRACK', created_at: '2024-12-18T14:00:00Z', updated_at: '2024-12-19T16:00:00Z' },
+  { id: 't-005', tenant_id: 'ten-1', ticket_number: 'FT-1005', subject: 'درخواست حذف حساب', status: 'RESOLVED', priority: 'NORMAL', product_id: 'p-001', product_name: 'فینوپال', customer_id: 'c-002', customer_name: 'رضا کریمی', category_id: 'cat-2', category_name: 'حساب کاربری', assignee_id: 'u-002', assignee_name: 'فاطمه رضایی', channel: 'WEB', source: 'web', tags: [], watchers: [], sla_status: 'ON_TRACK', resolved_at: '2024-12-17T12:00:00Z', created_at: '2024-12-15T10:00:00Z', updated_at: '2024-12-17T12:00:00Z' },
+  { id: 't-006', tenant_id: 'ten-1', ticket_number: 'FT-1006', subject: 'عدم دریافت کد تایید پیامکی', status: 'OPEN', priority: 'HIGH', product_id: 'p-002', product_name: 'فینوآی‌دی', customer_id: 'c-003', customer_name: 'مریم حسینی', category_id: 'cat-1', category_name: 'احراز هویت', channel: 'SMS', source: 'sms', tags: ['sms', 'otp'], watchers: [], sla_status: 'WARNING', created_at: '2024-12-20T11:00:00Z', updated_at: '2024-12-20T11:00:00Z' },
 ];
 
 export const mockMessages: Message[] = [
@@ -34,29 +67,100 @@ export const mockMessages: Message[] = [
   { id: 'm-004', ticket_id: 't-001', sender_type: 'CUSTOMER', sender_id: 'c-001', sender_name: 'سارا احمدی', body: 'ممنون. مرورگر رو آپدیت کردم ولی هنوز مشکل دارم. اسکرین‌شات ضمیمه کردم.', is_internal: false, channel: 'WEB', attachments: [{ id: 'att-1', filename: 'screenshot.png', mime_type: 'image/png', size: 245000, url: '#' }], created_at: '2024-12-20T11:00:00Z' },
 ];
 
+// Categories (under departments)
 export const mockCategories: Category[] = [
-  { id: 'cat-1', name: 'احراز هویت', slug: 'auth', status: 'ACTIVE', sort_order: 1, children: [{ id: 'cat-1-1', name: 'ورود', slug: 'login', status: 'ACTIVE', sort_order: 1, parent_id: 'cat-1' }, { id: 'cat-1-2', name: 'ثبت‌نام', slug: 'register', status: 'ACTIVE', sort_order: 2, parent_id: 'cat-1' }] },
-  { id: 'cat-2', name: 'حساب کاربری', slug: 'account', status: 'ACTIVE', sort_order: 2, children: [] },
-  { id: 'cat-3', name: 'پرداخت', slug: 'payment', status: 'ACTIVE', sort_order: 3, children: [] },
-  { id: 'cat-4', name: 'عمومی', slug: 'general', status: 'ACTIVE', sort_order: 4, children: [] },
+  // Department d-1 (فنی) categories
+  { id: 'cat-1', tenant_id: 'ten-1', department_id: 'd-1', name: 'احراز هویت', slug: 'auth', status: 'ACTIVE', sort_order: 1, children: [] },
+  { id: 'cat-2', tenant_id: 'ten-1', department_id: 'd-1', name: 'حساب کاربری', slug: 'account', status: 'ACTIVE', sort_order: 2, children: [] },
+  // Department d-2 (مالی) categories
+  { id: 'cat-3', tenant_id: 'ten-1', department_id: 'd-2', name: 'پرداخت', slug: 'payment', status: 'ACTIVE', sort_order: 1, children: [] },
+  { id: 'cat-4', tenant_id: 'ten-1', department_id: 'd-2', name: 'کارمزد', slug: 'fee', status: 'ACTIVE', sort_order: 2, children: [] },
+  // Department d-3 (پشتیبانی) categories
+  { id: 'cat-5', tenant_id: 'ten-1', department_id: 'd-3', name: 'عمومی', slug: 'general', status: 'ACTIVE', sort_order: 1, children: [] },
+  // Department d-4 (فنی هویت) categories
+  { id: 'cat-6', tenant_id: 'ten-1', department_id: 'd-4', name: 'تایید هویت', slug: 'identity-verify', status: 'ACTIVE', sort_order: 1, children: [] },
 ];
 
+// Departments (under products)
 export const mockDepartments: Department[] = [
-  { id: 'd-1', name: 'فنی', slug: 'tech', status: 'ACTIVE' },
-  { id: 'd-2', name: 'مالی', slug: 'finance', status: 'ACTIVE' },
-  { id: 'd-3', name: 'پشتیبانی', slug: 'support', status: 'ACTIVE' },
-  { id: 'd-4', name: 'مدیریت', slug: 'management', status: 'ACTIVE' },
+  // Product p-001 (فینوپال) departments
+  { id: 'd-1', tenant_id: 'ten-1', product_id: 'p-001', name: 'فنی', slug: 'tech', status: 'ACTIVE' },
+  { id: 'd-2', tenant_id: 'ten-1', product_id: 'p-001', name: 'مالی', slug: 'finance', status: 'ACTIVE' },
+  { id: 'd-3', tenant_id: 'ten-1', product_id: 'p-001', name: 'پشتیبانی', slug: 'support', status: 'ACTIVE' },
+  // Product p-002 (فینوآی‌دی) departments
+  { id: 'd-4', tenant_id: 'ten-1', product_id: 'p-002', name: 'فنی هویت', slug: 'tech-identity', status: 'ACTIVE' },
+  { id: 'd-5', tenant_id: 'ten-1', product_id: 'p-002', name: 'پشتیبانی هویت', slug: 'support-identity', status: 'ACTIVE' },
 ];
 
+// Teams (with scope: DEPARTMENT or CATEGORY)
 export const mockTeams: Team[] = [
-  { id: 'tm-1', name: 'پشتیبانی فنی', slug: 'tech-support', department_id: 'd-1', department_name: 'فنی', status: 'ACTIVE', members: [{ user_id: 'u-001', user_name: 'علی محمدی', role: 'LEAD' }, { user_id: 'u-002', user_name: 'فاطمه رضایی', role: 'MEMBER' }] },
-  { id: 'tm-2', name: 'پشتیبانی مالی', slug: 'finance-support', department_id: 'd-2', department_name: 'مالی', status: 'ACTIVE', members: [{ user_id: 'u-003', user_name: 'حسن نوری', role: 'LEAD' }] },
+  // Department-scoped team (covers entire d-1 department)
+  { 
+    id: 'tm-1', 
+    tenant_id: 'ten-1', 
+    product_id: 'p-001', 
+    department_id: 'd-1', 
+    category_id: null, 
+    scope: 'DEPARTMENT',
+    name: 'پشتیبانی فنی', 
+    slug: 'tech-support', 
+    status: 'ACTIVE', 
+    members: [
+      { user_id: 'u-001', user_name: 'علی محمدی', role: 'LEAD' }, 
+      { user_id: 'u-002', user_name: 'فاطمه رضایی', role: 'MEMBER' }
+    ] 
+  },
+  // Category-scoped team (specialized for cat-1 under d-1)
+  { 
+    id: 'tm-2', 
+    tenant_id: 'ten-1', 
+    product_id: 'p-001', 
+    department_id: 'd-1', 
+    category_id: 'cat-1', 
+    scope: 'CATEGORY',
+    name: 'تیم احراز هویت', 
+    slug: 'auth-team', 
+    status: 'ACTIVE', 
+    members: [
+      { user_id: 'u-002', user_name: 'فاطمه رضایی', role: 'LEAD' }
+    ] 
+  },
+  // Department-scoped team for d-2
+  { 
+    id: 'tm-3', 
+    tenant_id: 'ten-1', 
+    product_id: 'p-001', 
+    department_id: 'd-2', 
+    category_id: null, 
+    scope: 'DEPARTMENT',
+    name: 'پشتیبانی مالی', 
+    slug: 'finance-support', 
+    status: 'ACTIVE', 
+    members: [
+      { user_id: 'u-003', user_name: 'حسن نوری', role: 'LEAD' }
+    ] 
+  },
 ];
 
+// Agents (under tenant)
 export const mockAgents: Agent[] = [
-  { id: 'ag-1', user_id: 'u-001', display_name: 'علی محمدی', timezone: 'Asia/Tehran', language: 'fa', max_active_tickets: 20, presence: 'ONLINE', status: 'ACTIVE' },
-  { id: 'ag-2', user_id: 'u-002', display_name: 'فاطمه رضایی', timezone: 'Asia/Tehran', language: 'fa', max_active_tickets: 15, presence: 'AWAY', status: 'ACTIVE' },
-  { id: 'ag-3', user_id: 'u-003', display_name: 'حسن نوری', timezone: 'Asia/Tehran', language: 'fa', max_active_tickets: 10, presence: 'BUSY', status: 'ACTIVE' },
+  { id: 'ag-1', tenant_id: 'ten-1', user_id: 'u-001', display_name: 'علی محمدی', timezone: 'Asia/Tehran', language: 'fa', max_active_tickets: 20, presence: 'ONLINE', status: 'ACTIVE' },
+  { id: 'ag-2', tenant_id: 'ten-1', user_id: 'u-002', display_name: 'فاطمه رضایی', timezone: 'Asia/Tehran', language: 'fa', max_active_tickets: 15, presence: 'AWAY', status: 'ACTIVE' },
+  { id: 'ag-3', tenant_id: 'ten-1', user_id: 'u-003', display_name: 'حسن نوری', timezone: 'Asia/Tehran', language: 'fa', max_active_tickets: 10, presence: 'BUSY', status: 'ACTIVE' },
+];
+
+// Topics (under categories) - NEW entity
+export const mockTopics: Topic[] = [
+  // Category cat-1 (احراز هویت) topics
+  { id: 'topic-1', tenant_id: 'ten-1', category_id: 'cat-1', name: 'مشکل ورود', slug: 'login-issue', description: 'مشکلات مربوط به ورود به حساب کاربری', status: 'ACTIVE', sort_order: 1 },
+  { id: 'topic-2', tenant_id: 'ten-1', category_id: 'cat-1', name: 'فراموشی رمز', slug: 'forgot-password', description: 'بازیابی رمز عبور', status: 'ACTIVE', sort_order: 2 },
+  { id: 'topic-3', tenant_id: 'ten-1', category_id: 'cat-1', name: 'تایید دو مرحله‌ای', slug: '2fa', description: 'مشکلات احراز هویت دو مرحله‌ای', status: 'ACTIVE', sort_order: 3 },
+  // Category cat-2 (حساب کاربری) topics
+  { id: 'topic-4', tenant_id: 'ten-1', category_id: 'cat-2', name: 'تغییر اطلاعات', slug: 'update-info', description: 'تغییر اطلاعات حساب کاربری', status: 'ACTIVE', sort_order: 1 },
+  { id: 'topic-5', tenant_id: 'ten-1', category_id: 'cat-2', name: 'حذف حساب', slug: 'delete-account', description: 'درخواست حذف حساب کاربری', status: 'ACTIVE', sort_order: 2 },
+  // Category cat-3 (پرداخت) topics
+  { id: 'topic-6', tenant_id: 'ten-1', category_id: 'cat-3', name: 'خطای پرداخت', slug: 'payment-error', description: 'مشکلات فنی در پرداخت', status: 'ACTIVE', sort_order: 1 },
+  { id: 'topic-7', tenant_id: 'ten-1', category_id: 'cat-3', name: 'برگشت وجه', slug: 'refund', description: 'درخواست برگشت وجه', status: 'ACTIVE', sort_order: 2 },
 ];
 
 export const mockSLAPolicies: SLAPolicy[] = [

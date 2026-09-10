@@ -4,6 +4,7 @@ import { AppProvider } from './app/providers';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import DeskLayout from './layouts/DeskLayout';
+import PlatformLayout from './layouts/PlatformLayout';
 
 // Public pages
 import LandingPage from './pages/landing/LandingPage';
@@ -27,11 +28,16 @@ import AnalyticsPage from './pages/desk/AnalyticsPage';
 // Admin pages
 import AdminProductsPage from './pages/admin/ProductsPage';
 import AdminProductDetailPage from './pages/admin/ProductDetailPage';
+import ProductDepartmentsPage from './pages/admin/ProductDepartmentsPage';
+import DepartmentDetailPage from './pages/admin/DepartmentDetailPage';
+import CategoryDetailPage from './pages/admin/CategoryDetailPage';
 import AdminCategoriesPage from './pages/admin/CategoriesPage';
 import WorkflowDetailPage from './pages/admin/WorkflowDetailPage';
+import TeamsPage from './pages/admin/TeamsPage';
+import TeamDetailPage from './pages/admin/TeamDetailPage';
+import CreateTeamPage from './pages/admin/CreateTeamPage';
 import {
   AdminDepartmentsPage,
-  AdminTeamsPage,
   AdminAgentsPage,
   AdminUsersPage,
   AdminSLAPage,
@@ -42,6 +48,13 @@ import {
   AdminWebhooksPage,
   AdminAuditLogsPage,
 } from './pages/admin/AdminPages';
+
+// Platform pages
+import PlatformOverviewPage from './pages/platform/PlatformOverviewPage';
+import PlatformTenantsPage from './pages/platform/PlatformTenantsPage';
+import PlatformTenantDetailPage from './pages/platform/PlatformTenantDetailPage';
+import PlatformSettingsPage from './pages/platform/PlatformSettingsPage';
+import PlatformAuditPage from './pages/platform/PlatformAuditPage';
 
 // Error pages
 import { ForbiddenPage, NotFoundPage } from './pages/system/ErrorPages';
@@ -76,10 +89,16 @@ export default function App() {
               {/* Admin routes (protected, with sidebar layout) */}
               <Route path="/admin/products" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><AdminProductsPage /></ProtectedRoute>} />
               <Route path="/admin/products/:id" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><AdminProductDetailPage /></ProtectedRoute>} />
+              <Route path="/admin/products/:productId/departments" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><ProductDepartmentsPage /></ProtectedRoute>} />
+              <Route path="/admin/departments/:departmentId" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><DepartmentDetailPage /></ProtectedRoute>} />
               <Route path="/admin/categories" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminCategoriesPage /></ProtectedRoute>} />
+              <Route path="/admin/categories/:categoryId" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><CategoryDetailPage /></ProtectedRoute>} />
               <Route path="/admin/workflows/:id" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><WorkflowDetailPage /></ProtectedRoute>} />
               <Route path="/admin/departments" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminDepartmentsPage /></ProtectedRoute>} />
-              <Route path="/admin/teams" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminTeamsPage /></ProtectedRoute>} />
+              <Route path="/admin/teams" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><TeamsPage /></ProtectedRoute>} />
+              <Route path="/admin/teams/:teamId" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><TeamDetailPage /></ProtectedRoute>} />
+              <Route path="/admin/departments/:departmentId/teams/create" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><CreateTeamPage /></ProtectedRoute>} />
+              <Route path="/admin/categories/:categoryId/teams/create" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><CreateTeamPage /></ProtectedRoute>} />
               <Route path="/admin/agents" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminAgentsPage /></ProtectedRoute>} />
               <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER']}><AdminUsersPage /></ProtectedRoute>} />
               <Route path="/admin/sla" element={<ProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'MANAGER']}><AdminSLAPage /></ProtectedRoute>} />
@@ -92,6 +111,15 @@ export default function App() {
 
               {/* Error routes (with layout) */}
               <Route path="/forbidden" element={<ForbiddenPage />} />
+            </Route>
+
+            {/* Platform routes (with platform layout) */}
+            <Route element={<PlatformLayout />}>
+              <Route path="/platform" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformOverviewPage /></ProtectedRoute>} />
+              <Route path="/platform/tenants" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformTenantsPage /></ProtectedRoute>} />
+              <Route path="/platform/tenants/:tenantId" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformTenantDetailPage /></ProtectedRoute>} />
+              <Route path="/platform/settings" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformSettingsPage /></ProtectedRoute>} />
+              <Route path="/platform/audit" element={<ProtectedRoute allowedRoles={['PLATFORM_ADMIN', 'PLATFORM_OWNER']}><PlatformAuditPage /></ProtectedRoute>} />
             </Route>
 
             {/* 404 (no layout) */}

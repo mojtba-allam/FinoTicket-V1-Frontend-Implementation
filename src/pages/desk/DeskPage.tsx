@@ -41,6 +41,7 @@ export default function DeskPage() {
       if (filters.priority && ticket.priority !== filters.priority) return false;
       if (filters.product && ticket.product_id !== filters.product) return false;
       if (filters.category && ticket.category_id !== filters.category) return false;
+      if (filters.topic && ticket.topic_id !== filters.topic) return false;
       if (filters.department && ticket.department_id !== filters.department) return false;
       if (filters.team && ticket.team_id !== filters.team) return false;
       if (filters.assignee && ticket.assignee_id !== filters.assignee) return false;

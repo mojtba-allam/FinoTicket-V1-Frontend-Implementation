@@ -1,8 +1,8 @@
 // Mock Service Worker setup for FinoTicket API
 // This provides in-memory persistence for all API operations with React reactivity
 
-import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep } from '../../types';
+import { mockTickets, mockCustomers, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants } from '../../data/mock';
+import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 
 // In-memory store with subscription support
@@ -18,6 +18,8 @@ class MockStore {
   knowledgeBases: KnowledgeBase[] = [...mockKnowledgeBases];
   articles: Article[] = [...mockArticles];
   products: Product[] = [...mockProducts];
+  topics: Topic[] = [...mockTopics];
+  tenants: Tenant[] = [...mockTenants];
   workflows: Workflow[] = [
     {
       id: 'wf-1',
@@ -111,6 +113,7 @@ class MockStore {
   createTicket(ticket: Partial<Ticket>) {
     const newTicket: Ticket = {
       id: `t-${Date.now()}`,
+      tenant_id: ticket.tenant_id || 'ten-1', // Default to demo tenant
       ticket_number: `FT-${1000 + this.tickets.length + 1}`,
       subject: ticket.subject || '',
       description: ticket.description,
@@ -166,6 +169,53 @@ class MockStore {
         title: `ارجاع به ${assignee_name}`,
         actor: 'سیستم',
       });
+    }
+    return result;
+  }
+
+  assignCascade(
+    id: string, 
+    data: { 
+      department_id?: string; 
+      department_name?: string;
+      team_id?: string; 
+      team_name?: string;
+      assignee_id?: string; 
+      assignee_name?: string;
+    }
+  ) {
+    const result = this.updateTicket(id, {
+      department_id: data.department_id,
+      department_name: data.department_name,
+      team_id: data.team_id,
+      team_name: data.team_name,
+      assignee_id: data.assignee_id,
+      assignee_name: data.assignee_name,
+    });
+    
+    if (result) {
+      // Add history events for each level of assignment
+      if (data.department_id) {
+        this.addHistoryEvent(id, {
+          type: 'assigned',
+          title: `ارجاع به دپارتمان ${data.department_name || data.department_id}`,
+          actor: 'سیستم',
+        });
+      }
+      if (data.team_id) {
+        this.addHistoryEvent(id, {
+          type: 'assigned',
+          title: `ارجاع به تیم ${data.team_name || data.team_id}`,
+          actor: 'سیستم',
+        });
+      }
+      if (data.assignee_id) {
+        this.addHistoryEvent(id, {
+          type: 'assigned',
+          title: `ارجاع به ${data.assignee_name || data.assignee_id}`,
+          actor: 'سیستم',
+        });
+      }
     }
     return result;
   }
@@ -306,9 +356,15 @@ class MockStore {
     return this.categories;
   }
 
+  getCategory(id: string) {
+    return this.categories.find(c => c.id === id);
+  }
+
   createCategory(category: Partial<Category>) {
     const newCategory: Category = {
       id: `cat-${Date.now()}`,
+      tenant_id: category.tenant_id || 'ten-1',
+      department_id: category.department_id || '',
       name: category.name || '',
       slug: category.slug || '',
       description: category.description,
@@ -334,9 +390,15 @@ class MockStore {
     return this.departments;
   }
 
+  getDepartment(id: string) {
+    return this.departments.find(d => d.id === id);
+  }
+
   createDepartment(department: Partial<Department>) {
     const newDepartment: Department = {
       id: `d-${Date.now()}`,
+      tenant_id: department.tenant_id || 'ten-1',
+      product_id: department.product_id || '',
       name: department.name || '',
       slug: department.slug || '',
       description: department.description,
@@ -360,13 +422,20 @@ class MockStore {
     return this.teams;
   }
 
+  getTeam(id: string) {
+    return this.teams.find(t => t.id === id);
+  }
+
   createTeam(team: Partial<Team>) {
     const newTeam: Team = {
       id: `tm-${Date.now()}`,
+      tenant_id: team.tenant_id || 'ten-1',
+      product_id: team.product_id || '',
+      department_id: team.department_id || '',
+      category_id: team.category_id || null,
+      scope: team.scope || 'DEPARTMENT',
       name: team.name || '',
       slug: team.slug || '',
-      department_id: team.department_id || '',
-      department_name: team.department_name,
       status: team.status || 'ACTIVE',
       members: team.members || [],
     };
@@ -381,6 +450,11 @@ class MockStore {
     this.teams[index] = { ...this.teams[index], ...updates };
     this.notify();
     return this.teams[index];
+  }
+
+  // Agents
+  getAgents() {
+    return this.agents;
   }
 
   // SLA Policies
@@ -431,6 +505,7 @@ class MockStore {
   createProduct(product: Partial<Product>) {
     const newProduct: Product = {
       id: `p-${Date.now()}`,
+      tenant_id: product.tenant_id || 'ten-1',
       name: product.name || '',
       slug: product.slug || '',
       status: product.status || 'ACTIVE',
@@ -520,6 +595,88 @@ class MockStore {
     this.notify();
     return true;
   }
+
+  // Topics
+  getTopics() {
+    return this.topics;
+  }
+
+  getTopicsByCategory(categoryId: string) {
+    return this.topics.filter(t => t.category_id === categoryId);
+  }
+
+  createTopic(topic: Partial<Topic>) {
+    const newTopic: Topic = {
+      id: `topic-${Date.now()}`,
+      tenant_id: topic.tenant_id || 'ten-1',
+      category_id: topic.category_id || '',
+      name: topic.name || '',
+      slug: topic.slug || '',
+      description: topic.description,
+      status: topic.status || 'ACTIVE',
+      sort_order: topic.sort_order || this.topics.length + 1,
+    };
+    this.topics.push(newTopic);
+    this.notify();
+    return newTopic;
+  }
+
+  updateTopic(id: string, updates: Partial<Topic>) {
+    const index = this.topics.findIndex(t => t.id === id);
+    if (index === -1) return null;
+    this.topics[index] = { ...this.topics[index], ...updates };
+    this.notify();
+    return this.topics[index];
+  }
+
+  // Tenants
+  getTenants() {
+    return this.tenants;
+  }
+
+  createTenant(tenant: Partial<Tenant>) {
+    const newTenant: Tenant = {
+      id: `ten-${Date.now()}`,
+      name: tenant.name || '',
+      slug: tenant.slug || '',
+      status: tenant.status || 'ACTIVE',
+      owner_user_id: tenant.owner_user_id || '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.tenants.push(newTenant);
+    this.notify();
+    return newTenant;
+  }
+
+  updateTenant(id: string, updates: Partial<Tenant>) {
+    const index = this.tenants.findIndex(t => t.id === id);
+    if (index === -1) return null;
+    this.tenants[index] = { ...this.tenants[index], ...updates, updated_at: new Date().toISOString() };
+    this.notify();
+    return this.tenants[index];
+  }
+
+  suspendTenant(id: string) {
+    return this.updateTenant(id, { status: 'SUSPENDED' });
+  }
+
+  // Hierarchy helpers
+  getDepartmentsByProduct(productId: string) {
+    return this.departments.filter(d => d.product_id === productId);
+  }
+
+  getCategoriesByDepartment(departmentId: string) {
+    return this.categories.filter(c => c.department_id === departmentId);
+  }
+
+  getTeamsByDepartment(departmentId: string) {
+    return this.teams.filter(t => t.department_id === departmentId && t.scope === 'DEPARTMENT');
+  }
+
+  getTeamsByCategory(categoryId: string) {
+    return this.teams.filter(t => t.category_id === categoryId && t.scope === 'CATEGORY');
+  }
 }
 
 // Singleton store
@@ -600,5 +757,21 @@ export const api = {
     get: (id: string) => mockStore.getProduct(id),
     create: (data: Partial<Product>) => mockStore.createProduct(data),
     update: (id: string, data: Partial<Product>) => mockStore.updateProduct(id, data),
+  },
+
+  // Topics
+  topics: {
+    list: () => mockStore.getTopics(),
+    listByCategory: (categoryId: string) => mockStore.getTopicsByCategory(categoryId),
+    create: (data: Partial<Topic>) => mockStore.createTopic(data),
+    update: (id: string, data: Partial<Topic>) => mockStore.updateTopic(id, data),
+  },
+
+  // Tenants
+  tenants: {
+    list: () => mockStore.getTenants(),
+    create: (data: Partial<Tenant>) => mockStore.createTenant(data),
+    update: (id: string, data: Partial<Tenant>) => mockStore.updateTenant(id, data),
+    suspend: (id: string) => mockStore.suspendTenant(id),
   },
 };

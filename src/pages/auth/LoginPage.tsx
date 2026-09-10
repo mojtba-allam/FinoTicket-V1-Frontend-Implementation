@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Ticket as TicketIcon } from 'lucide-react';
+import { Ticket as TicketIcon, Shield, Building2 } from 'lucide-react';
 import { Button, Input, Card } from '../../components/ui';
 import { fa } from '../../i18n';
+import { useApp } from '../../app/providers';
+import { mockPlatformUser, mockUser } from '../../data/mock';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { setUser } = useApp();
   const [email, setEmail] = useState('admin@finoticket.ir');
   const [password, setPassword] = useState('password');
   const [error, setError] = useState('');
@@ -15,10 +18,34 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => {
-      if (email && password) navigate('/desk');
-      else setError(fa.auth.invalid_credentials);
+      if (email && password) {
+        // Determine which user to login as based on email
+        if (email === 'super@fino.local') {
+          setUser(mockPlatformUser);
+          navigate('/platform');
+        } else {
+          setUser(mockUser);
+          navigate('/desk');
+        }
+      } else {
+        setError(fa.auth.invalid_credentials);
+      }
       setLoading(false);
     }, 800);
+  };
+
+  const handleQuickLogin = (type: 'platform' | 'tenant') => {
+    setLoading(true);
+    setTimeout(() => {
+      if (type === 'platform') {
+        setUser(mockPlatformUser);
+        navigate('/platform');
+      } else {
+        setUser(mockUser);
+        navigate('/desk');
+      }
+      setLoading(false);
+    }, 500);
   };
 
   return (
@@ -43,6 +70,33 @@ export default function LoginPage() {
               <Link to="/forgot-password" className="text-brand-600 hover:underline">{fa.auth.forgot_password}</Link>
             </p>
           </form>
+
+          {/* Quick Login Buttons */}
+          <div className="mt-6 pt-6 border-t border-border">
+            <p className="text-xs text-text-muted text-center mb-3">
+              حساب‌های آزمایشی / Demo Accounts
+            </p>
+            <div className="space-y-2">
+              <Button 
+                variant="secondary" 
+                className="w-full" 
+                onClick={() => handleQuickLogin('platform')}
+                disabled={loading}
+              >
+                <Shield className="h-4 w-4" />
+                سوپر ادمین / Super Admin (super@fino.local)
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="w-full" 
+                onClick={() => handleQuickLogin('tenant')}
+                disabled={loading}
+              >
+                <Building2 className="h-4 w-4" />
+                ادمین مستأجر / Tenant Admin (admin@finoticket.ir)
+              </Button>
+            </div>
+          </div>
         </Card>
         <p className="text-center text-xs mt-4" style={{ color: 'var(--color-text-muted)' }}>نسخه ۱.۰ — FinoTicket © 2024</p>
       </div>
