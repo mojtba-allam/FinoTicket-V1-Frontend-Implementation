@@ -65,6 +65,24 @@ export const mockMessages: Message[] = [
   { id: 'm-002', ticket_id: 't-001', sender_type: 'AGENT', sender_id: 'u-001', sender_name: 'علی محمدی', body: 'سلام سارا خانم. لطفاً مرورگر خود را به‌روزرسانی کنید و مجدداً تلاش کنید.', is_internal: false, channel: 'WEB', attachments: [], created_at: '2024-12-20T10:30:00Z' },
   { id: 'm-003', ticket_id: 't-001', sender_type: 'AGENT', sender_id: 'u-001', sender_name: 'علی محمدی', body: 'بررسی شد - احتمالاً مشکل از سمت سرور احراز هویت است. باید به تیم فنی ارجاع بدیم.', is_internal: true, channel: 'WEB', attachments: [], created_at: '2024-12-20T10:35:00Z' },
   { id: 'm-004', ticket_id: 't-001', sender_type: 'CUSTOMER', sender_id: 'c-001', sender_name: 'سارا احمدی', body: 'ممنون. مرورگر رو آپدیت کردم ولی هنوز مشکل دارم. اسکرین‌شات ضمیمه کردم.', is_internal: false, channel: 'WEB', attachments: [{ id: 'att-1', filename: 'screenshot.png', mime_type: 'image/png', size: 245000, url: '#' }], created_at: '2024-12-20T11:00:00Z' },
+  
+  // t-002 messages
+  { id: 'm-005', ticket_id: 't-002', sender_type: 'CUSTOMER', sender_id: 'c-002', sender_name: 'رضا کریمی', body: 'سلام، می‌خواستم شماره موبایلم رو تغییر بدم. شماره قدیمی: 09131234567، شماره جدید: 09129876543', is_internal: false, channel: 'EMAIL', attachments: [], created_at: '2024-12-19T08:00:00Z' },
+  { id: 'm-006', ticket_id: 't-002', sender_type: 'AGENT', sender_id: 'u-001', sender_name: 'علی محمدی', body: 'سلام رضا آقا. برای تغییر شماره موبایل، لطفاً تصویر کارت ملی خود را ارسال کنید.', is_internal: false, channel: 'EMAIL', attachments: [], created_at: '2024-12-19T09:00:00Z' },
+  
+  // t-003 messages
+  { id: 'm-007', ticket_id: 't-003', sender_type: 'CUSTOMER', sender_id: 'c-003', sender_name: 'مریم حسینی', body: 'سلام، هنگام پرداخت با خطای 500 مواجه می‌شم. لطفاً بررسی کنید.', is_internal: false, channel: 'WIDGET', attachments: [], created_at: '2024-12-19T09:00:00Z' },
+  
+  // t-004 messages
+  { id: 'm-008', ticket_id: 't-004', sender_type: 'CUSTOMER', sender_id: 'c-001', sender_name: 'سارا احمدی', body: 'سلام، کارمزد انتقال وجه چقدره؟', is_internal: false, channel: 'CHAT', attachments: [], created_at: '2024-12-18T14:00:00Z' },
+  { id: 'm-009', ticket_id: 't-004', sender_type: 'AGENT', sender_id: 'u-001', sender_name: 'علی محمدی', body: 'سلام سارا خانم. کارمزد انتقال وجه 0.5 درصد است. آیا سوال دیگری دارید؟', is_internal: false, channel: 'CHAT', attachments: [], created_at: '2024-12-18T14:30:00Z' },
+  
+  // t-005 messages
+  { id: 'm-010', ticket_id: 't-005', sender_type: 'CUSTOMER', sender_id: 'c-002', sender_name: 'رضا کریمی', body: 'سلام، می‌خواستم حساب کاربریم رو حذف کنید.', is_internal: false, channel: 'WEB', attachments: [], created_at: '2024-12-15T10:00:00Z' },
+  { id: 'm-011', ticket_id: 't-005', sender_type: 'AGENT', sender_id: 'u-002', sender_name: 'فاطمه رضایی', body: 'سلام رضا آقا. درخواست حذف حساب شما ثبت شد. ظرف 48 ساعت آینده حساب شما حذف خواهد شد.', is_internal: false, channel: 'WEB', attachments: [], created_at: '2024-12-15T11:00:00Z' },
+  
+  // t-006 messages
+  { id: 'm-012', ticket_id: 't-006', sender_type: 'CUSTOMER', sender_id: 'c-003', sender_name: 'مریم حسینی', body: 'سلام، کد تایید پیامکی دریافت نمی‌کنم. شماره موبایلم 09123456789 هست.', is_internal: false, channel: 'SMS', attachments: [], created_at: '2024-12-20T11:00:00Z' },
 ];
 
 // Categories (under departments)
