@@ -11,60 +11,14 @@ export default function PlatformAuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   
-  // Mock audit logs - in a real app, these would come from the backend
-  const auditLogs = [
-    {
-      id: 'audit-1',
-      action: 'CREATE',
-      entity: 'Tenant',
-      entityId: 'ten-1',
-      actor: 'Super Admin',
-      timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-      details: 'Created tenant "شرکت فینو"',
-    },
-    {
-      id: 'audit-2',
-      action: 'UPDATE',
-      entity: 'Tenant',
-      entityId: 'ten-1',
-      actor: 'Super Admin',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-      details: 'Updated tenant status to ACTIVE',
-    },
-    {
-      id: 'audit-3',
-      action: 'SUSPEND',
-      entity: 'Tenant',
-      entityId: 'ten-2',
-      actor: 'Super Admin',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
-      details: 'Suspended tenant "شرکت آزمایشی"',
-    },
-    {
-      id: 'audit-4',
-      action: 'CREATE',
-      entity: 'Product',
-      entityId: 'p-001',
-      actor: 'Ali Mohammadi',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-      details: 'Created product "فینوپال"',
-    },
-    {
-      id: 'audit-5',
-      action: 'UPDATE',
-      entity: 'User',
-      entityId: 'u-001',
-      actor: 'Ali Mohammadi',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(), // 2 days ago
-      details: 'Updated user role to ADMIN',
-    },
-  ];
+  // Get audit logs from mockStore
+  const auditLogs = mockStore.getAuditLogs();
 
   const filteredLogs = auditLogs.filter(log => {
     const matchesSearch = !searchTerm || 
-      log.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.actor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.entity.toLowerCase().includes(searchTerm.toLowerCase());
+      log.actor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.entity_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.entity_type.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesAction = !actionFilter || log.action === actionFilter;
     
@@ -155,14 +109,18 @@ export default function PlatformAuditPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     {getActionBadge(log.action)}
-                    <span className="font-medium">{log.entity}</span>
-                    <span className="text-xs text-text-muted font-mono">{log.entityId}</span>
+                    <span className="font-medium">{log.entity_type}</span>
+                    <span className="text-xs text-text-muted font-mono">{log.entity_id}</span>
                   </div>
-                  <p className="text-sm mb-1">{log.details}</p>
+                  <p className="text-sm mb-1">
+                    {log.metadata && typeof log.metadata === 'object' && 'details' in log.metadata 
+                      ? String(log.metadata.details)
+                      : `${log.action} ${log.entity_type}`}
+                  </p>
                   <div className="flex items-center gap-2 text-xs text-text-muted">
-                    <span>{log.actor}</span>
+                    <span>{log.actor_name}</span>
                     <span>•</span>
-                    <span>{formatTimestamp(log.timestamp)}</span>
+                    <span>{formatTimestamp(log.created_at)}</span>
                   </div>
                 </div>
               </div>

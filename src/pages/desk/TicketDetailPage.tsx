@@ -744,6 +744,7 @@ export default function TicketDetailPage() {
           <div className="space-y-2">
             {(() => {
               // Get similar tickets (same customer or same category)
+              // Use refreshKey to add randomness when refresh is clicked
               const similarTickets = mockStore.getTickets()
                 .filter(tk => 
                   tk.id !== ticket.id && 
@@ -755,6 +756,10 @@ export default function TicketDetailPage() {
                   if (tk.customer_id === ticket.customer_id) score += 0.5;
                   if (tk.category_id === ticket.category_id) score += 0.3;
                   if (tk.department_id === ticket.department_id) score += 0.2;
+                  
+                  // Add small random variance based on refreshKey to reshuffle similar scores
+                  const variance = (refreshKey * 0.01) % 0.1;
+                  score += variance;
                   
                   return { ...tk, similarity_score: Math.min(score, 0.95) };
                 })

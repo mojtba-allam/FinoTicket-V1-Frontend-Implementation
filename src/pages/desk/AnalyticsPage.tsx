@@ -17,6 +17,14 @@ export default function AnalyticsPage() {
 
   // Simulate loading when date range changes
   useEffect(() => {
+    // Only update data if:
+    // 1. dateRange is '7d' or '30d', OR
+    // 2. dateRange is 'custom' AND both customFrom and customTo are set
+    // Otherwise, keep previous data (don't reset to full series)
+    if (dateRange === 'custom' && (!customFrom || !customTo)) {
+      return; // Keep previous data, don't update
+    }
+
     setLoading(true);
     const timer = setTimeout(() => {
       let filteredTickets = mockAnalytics.tickets_over_time;
