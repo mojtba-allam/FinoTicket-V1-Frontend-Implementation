@@ -213,7 +213,7 @@ export function AdminAgentsPage() {
 }
 
 function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data: any) => void; onClose: () => void }) {
-  const { lang } = useApp();
+  const { lang, showToast } = useApp();
   useMockStore();
   const users = mockStore.getUsers().filter(u => u.console === 'tenant' && (u.role === 'AGENT' || u.role === 'ADMIN' || u.role === 'MANAGER'));
   
@@ -239,11 +239,11 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.user_id) {
-      alert(lang === 'fa' ? 'لطفاً یک کاربر را انتخاب کنید' : 'Please select a user');
+      showToast(lang === 'fa' ? 'لطفاً یک کاربر را انتخاب کنید' : 'Please select a user', 'error');
       return;
     }
     if (!formData.display_name.trim()) {
-      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
       return;
     }
     onSave(formData);
@@ -931,7 +931,7 @@ export function AdminAutomationsPage() {
 }
 
 function AutomationFormModal({ automation, onSave, onClose }: { automation: any; onSave: (data: any) => void; onClose: () => void }) {
-  const { lang } = useApp();
+  const { lang, showToast } = useApp();
   const [formData, setFormData] = useState({
     name: automation?.name || '',
     trigger_event: automation?.trigger_event || 'ticket.created',
@@ -980,7 +980,7 @@ function AutomationFormModal({ automation, onSave, onClose }: { automation: any;
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
       return;
     }
     onSave(formData);
@@ -1179,7 +1179,7 @@ export function AdminKnowledgeBasesPage() {
 }
 
 function KnowledgeBaseFormModal({ onSave, onClose }: { onSave: (data: any) => void; onClose: () => void }) {
-  const { lang } = useApp();
+  const { lang, showToast } = useApp();
   const [name, setName] = useState('');
   const [scope, setScope] = useState<'TENANT' | 'PRODUCT' | 'GLOBAL'>('TENANT');
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
@@ -1187,7 +1187,7 @@ function KnowledgeBaseFormModal({ onSave, onClose }: { onSave: (data: any) => vo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
       return;
     }
     onSave({ name, scope, status });
@@ -1393,7 +1393,7 @@ export function AdminAPIClientsPage() {
 }
 
 function APIClientFormModal({ client, scopes, onSave, onClose }: { client: any; scopes: string[]; onSave: (data: any) => void; onClose: () => void }) {
-  const { lang } = useApp();
+  const { lang, showToast } = useApp();
   const [formData, setFormData] = useState({
     name: client?.name || '',
     scopes: client?.scopes || [],
@@ -1411,11 +1411,11 @@ function APIClientFormModal({ client, scopes, onSave, onClose }: { client: any; 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
       return;
     }
     if (formData.scopes.length === 0) {
-      alert(lang === 'fa' ? 'لطفاً حداقل یک دسترسی انتخاب کنید' : 'Please select at least one scope');
+      showToast(lang === 'fa' ? 'لطفاً حداقل یک دسترسی انتخاب کنید' : 'Please select at least one scope', 'error');
       return;
     }
     onSave(formData);
@@ -1637,7 +1637,7 @@ export function AdminWebhooksPage() {
 }
 
 function WebhookFormModal({ webhook, events, onSave, onClose }: { webhook: any; events: string[]; onSave: (data: any) => void; onClose: () => void }) {
-  const { lang } = useApp();
+  const { lang, showToast } = useApp();
   const [formData, setFormData] = useState({
     name: webhook?.name || '',
     url: webhook?.url || '',
@@ -1657,15 +1657,15 @@ function WebhookFormModal({ webhook, events, onSave, onClose }: { webhook: any; 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      alert(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name');
+      showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
       return;
     }
     if (!formData.url.trim()) {
-      alert(lang === 'fa' ? 'لطفاً URL را وارد کنید' : 'Please enter a URL');
+      showToast(lang === 'fa' ? 'لطفاً URL را وارد کنید' : 'Please enter a URL', 'error');
       return;
     }
     if (formData.events.length === 0) {
-      alert(lang === 'fa' ? 'لطفاً حداقل یک رویداد انتخاب کنید' : 'Please select at least one event');
+      showToast(lang === 'fa' ? 'لطفاً حداقل یک رویداد انتخاب کنید' : 'Please select at least one event', 'error');
       return;
     }
     onSave(formData);
@@ -1810,7 +1810,8 @@ export function AdminAuditLogsPage() {
     const matchesEntityType = !entityTypeFilter || log.entity_type === entityTypeFilter;
     const matchesActor = !actorFilter || log.actor_name.toLowerCase().includes(actorFilter.toLowerCase());
     const matchesDateFrom = !dateFrom || new Date(log.created_at) >= new Date(dateFrom);
-    const matchesDateTo = !dateTo || new Date(log.created_at) <= new Date(dateTo);
+    // Make dateTo inclusive by setting time to end of day (23:59:59)
+    const matchesDateTo = !dateTo || new Date(log.created_at) <= new Date(dateTo + 'T23:59:59.999Z');
     return matchesSearch && matchesAction && matchesEntityType && matchesActor && matchesDateFrom && matchesDateTo;
   });
 

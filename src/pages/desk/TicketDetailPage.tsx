@@ -428,6 +428,7 @@ export default function TicketDetailPage() {
                 <Select
                   value={selectedCategoryId}
                   onChange={(v) => {
+                    const oldCategoryName = ticket.category_name;
                     setSelectedCategoryId(v);
                     setSelectedTopicId(''); // Clear topic when category changes
                     if (v) {
@@ -438,6 +439,15 @@ export default function TicketDetailPage() {
                         topic_id: undefined,
                         topic_name: undefined
                       });
+                      // Add history event for category change
+                      if (oldCategoryName !== category?.name) {
+                        mockStore.addHistoryEvent(ticket.id, {
+                          type: 'updated',
+                          title: lang === 'fa' ? 'دسته‌بندی تغییر کرد' : 'Category changed',
+                          description: `${oldCategoryName || '—'} → ${category?.name || '—'}`,
+                          actor: 'کارشناس',
+                        });
+                      }
                     } else {
                       mockStore.updateTicket(ticket.id, { 
                         category_id: undefined, 
@@ -445,6 +455,14 @@ export default function TicketDetailPage() {
                         topic_id: undefined,
                         topic_name: undefined
                       });
+                      if (oldCategoryName) {
+                        mockStore.addHistoryEvent(ticket.id, {
+                          type: 'updated',
+                          title: lang === 'fa' ? 'دسته‌بندی حذف شد' : 'Category removed',
+                          description: oldCategoryName,
+                          actor: 'کارشناس',
+                        });
+                      }
                     }
                   }}
                   options={[
@@ -464,12 +482,30 @@ export default function TicketDetailPage() {
                 <Select
                   value={selectedTopicId}
                   onChange={(v) => {
+                    const oldTopicName = ticket.topic_name;
                     setSelectedTopicId(v);
                     if (v) {
                       const topic = mockStore.getTopics().find(t => t.id === v);
                       mockStore.updateTicket(ticket.id, { topic_id: v, topic_name: topic?.name });
+                      // Add history event for topic change
+                      if (oldTopicName !== topic?.name) {
+                        mockStore.addHistoryEvent(ticket.id, {
+                          type: 'updated',
+                          title: lang === 'fa' ? 'موضوع تغییر کرد' : 'Topic changed',
+                          description: `${oldTopicName || '—'} → ${topic?.name || '—'}`,
+                          actor: 'کارشناس',
+                        });
+                      }
                     } else {
                       mockStore.updateTicket(ticket.id, { topic_id: undefined, topic_name: undefined });
+                      if (oldTopicName) {
+                        mockStore.addHistoryEvent(ticket.id, {
+                          type: 'updated',
+                          title: lang === 'fa' ? 'موضوع حذف شد' : 'Topic removed',
+                          description: oldTopicName,
+                          actor: 'کارشناس',
+                        });
+                      }
                     }
                   }}
                   options={[

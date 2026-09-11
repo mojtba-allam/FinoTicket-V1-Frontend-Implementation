@@ -39,6 +39,19 @@ class MockStore {
     },
     // Tenant users
     {
+      id: 'u-000',
+      tenant_id: 'ten-1',
+      console: 'tenant',
+      email: 'owner@finoticket.ir',
+      display_name: 'محمد رضایی',
+      role: 'OWNER',
+      presence: 'ONLINE',
+      timezone: 'Asia/Tehran',
+      language: 'fa',
+      status: 'ACTIVE',
+      created_at: '2024-01-01T00:00:00Z',
+    },
+    {
       id: 'u-001',
       tenant_id: 'ten-1',
       console: 'tenant',
@@ -237,7 +250,7 @@ class MockStore {
     return this.historyByTicketId.get(id) || [];
   }
 
-  private addHistoryEvent(ticketId: string, event: Omit<TimelineEvent, 'id' | 'timestamp'>) {
+  addHistoryEvent(ticketId: string, event: Omit<TimelineEvent, 'id' | 'timestamp'>) {
     if (!this.historyByTicketId.has(ticketId)) {
       this.historyByTicketId.set(ticketId, []);
     }
@@ -247,6 +260,7 @@ class MockStore {
       id: `evt-${Date.now()}-${Math.random()}`,
       timestamp: new Date().toISOString(),
     });
+    this.notify();
   }
 
   createTicket(ticket: Partial<Ticket> & { attachments?: Attachment[] }) {

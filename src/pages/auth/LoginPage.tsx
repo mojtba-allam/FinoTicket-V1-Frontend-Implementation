@@ -101,6 +101,15 @@ export default function LoginPage() {
               <Button 
                 variant="secondary" 
                 className="w-full" 
+                onClick={() => handleQuickLogin('owner@finoticket.ir')}
+                disabled={loading}
+              >
+                <Shield className="h-4 w-4" />
+                مالک / Owner
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="w-full" 
                 onClick={() => handleQuickLogin('admin@finoticket.ir')}
                 disabled={loading}
               >

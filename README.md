@@ -45,7 +45,21 @@ The application includes multiple demo accounts for testing different roles and 
 
 ### Tenant Users
 
-#### Admin (OWNER/ADMIN)
+#### Owner (OWNER)
+- **Email**: `owner@finoticket.ir`
+- **Password**: `password` (any password works in demo)
+- **Access**: Tenant desk at `/desk`
+- **Capabilities**:
+  - Full access to all tenant features
+  - Manage products, departments, categories, topics
+  - Create and manage teams
+  - Handle tickets with cascading assignment
+  - Customer management
+  - Knowledge base management
+  - User management (invite, edit roles)
+  - Highest level of tenant permissions
+
+#### Admin (ADMIN)
 - **Email**: `admin@finoticket.ir`
 - **Password**: `password` (any password works in demo)
 - **Access**: Tenant desk at `/desk`
@@ -93,6 +107,7 @@ The application includes multiple demo accounts for testing different roles and 
 ### Quick Login
 The login page provides quick login buttons for all demo accounts:
 - Click "سوپر ادمین / Super Admin" to login as platform admin
+- Click "مالک / Owner" to login as tenant owner
 - Click "ادمین / Admin" to login as tenant admin
 - Click "مدیر ارشد / Manager" to login as manager
 - Click "کارشناس / Agent" to login as agent
