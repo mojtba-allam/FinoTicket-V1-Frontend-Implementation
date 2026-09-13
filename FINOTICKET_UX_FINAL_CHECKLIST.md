@@ -45,11 +45,13 @@ Legend: `[ ]` open · `[x]` done
 
 ## D. Not this frontend track (full product / tech-spec V1)
 
-- [ ] Wire SPA → Laravel `/api/v1/*`  
-- [ ] Real widget JWT  
-- [ ] Backend Laravel (schema, search, RAG, outbox, …)  
-- [ ] Tags catalog / outbox console (optional later)  
-- [ ] MSW / Storybook / Playwright  
+> **Update 2026-09-13:** all of these have since been delivered (L7–L14).
+
+- [x] Wire SPA → Laravel `/api/v1/*` — L7 (`VITE_API_MODE=live|mock`, typed client, `useCollection`)
+- [x] Real widget JWT — L10/L11 (`POST /auth/widget-token`, embed exchange, L14 adds RS256 production signing)
+- [x] Backend Laravel (schema, search, RAG, outbox, …) — L1–L6 + L12–L14 (163 PHPUnit tests)
+- [ ] Tags catalog / outbox console (optional later)
+- [x] MSW / Storybook / Playwright — Playwright e2e suites shipped (L8/L9/L10/L11, 30 tests); MSW/Storybook still optional
 
 ---
 
@@ -58,6 +60,6 @@ Legend: `[ ]` open · `[x]` done
 | Track | Status |
 |-------|--------|
 | Mock product UX | **~100%** |
-| Full FinoTicket V1 (spec DoD) | **Not done** — needs backend + API |
+| Full FinoTicket V1 (spec DoD) | **Done** — backend L1–L14 + live wiring + embed console (see FINOTICKET_STATUS_CHECKLIST.md) |
 
 No further FE mock prompts required unless you start API wiring.
