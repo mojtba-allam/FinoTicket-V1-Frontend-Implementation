@@ -322,3 +322,10 @@ This is a demonstration project. For production use, please contact the FinoTick
 ---
 
 **Built with**: React 18, TypeScript, Vite, Tailwind CSS, React Router, Recharts
+
+## Merge policy
+
+- `main` is the deploy branch, `test` is the staging branch; CI runs on every push to both.
+- Merge to `main` only via PRs with a green CI run and owner review.
+- GitHub free plan does not allow branch-protection rulesets on private repos,
+  so the gate is enforced by convention + CODEOWNERS review requests.

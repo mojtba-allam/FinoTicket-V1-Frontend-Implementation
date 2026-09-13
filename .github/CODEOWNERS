@@ -1,0 +1,4 @@
+# All changes must be reviewed by the owner before merge.
+# NOTE: branch-protection rulesets are unavailable on GitHub free plan
+# for private repos; this file enforces review requests on every PR.
+* @mojtba-allam
