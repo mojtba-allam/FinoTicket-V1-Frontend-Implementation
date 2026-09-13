@@ -3,18 +3,33 @@ import { useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { Button, Card, Badge, EmptyState, SearchInput, SegmentedControl, Select } from '../../components/ui';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
-import { mockProducts, mockDepartments } from '../../data/mock';
+import { getDataApi } from '../../lib/api/dataApi';
+import { isLiveMode } from '../../lib/api/config';
+import { describeError, useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 
 export default function SearchPage() {
   const { t, lang } = useApp();
   useMockStore();
   const navigate = useNavigate();
+  const live = isLiveMode();
+
+  // Filter dropdowns reflect real taxonomy/products in live mode.
+  const { data: products } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
+
+  const { data: departments } = useCollection(
+    () => mockStore.getDepartments(),
+    (api) => api.departments.list(),
+  );
   
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<'KEYWORD' | 'SEMANTIC' | 'HYBRID'>('HYBRID');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Filters
   const [productFilter, setProductFilter] = useState('');
@@ -26,14 +41,15 @@ export default function SearchPage() {
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
-      performSearch();
+      void performSearch();
     }, 300);
     return () => clearTimeout(timer);
   }, [query, mode, productFilter, statusFilter, departmentFilter, dateFrom, dateTo]);
 
-  const performSearch = () => {
+  const performSearch = async () => {
     setLoading(true);
-    
+    setError(null);
+
     const filters: any = {};
     if (productFilter) filters.product = productFilter;
     if (statusFilter) filters.status = statusFilter;
@@ -41,14 +57,31 @@ export default function SearchPage() {
     if (dateFrom) filters.date_from = dateFrom;
     if (dateTo) filters.date_to = dateTo;
 
-    const searchResults = mockStore.search({
-      q: query,
-      mode,
-      filters: Object.keys(filters).length > 0 ? filters : undefined,
-    });
+    try {
+      if (live) {
+        if (!query.trim()) {
+          setResults([]);
+          return;
+        }
 
-    setResults(searchResults);
-    setLoading(false);
+        const hits = await getDataApi().search.query(query, mode);
+        setResults(hits);
+        return;
+      }
+
+      setResults(
+        mockStore.search({
+          q: query,
+          mode,
+          filters: Object.keys(filters).length > 0 ? filters : undefined,
+        }),
+      );
+    } catch (err) {
+      setError(describeError(err as Error));
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const clearFilters = () => {
@@ -100,7 +133,7 @@ export default function SearchPage() {
             onChange={setProductFilter}
             options={[
               { value: '', label: lang === 'fa' ? 'همه' : 'All' },
-              ...mockProducts.map(p => ({ value: p.id, label: p.name }))
+              ...products.map(p => ({ value: p.id, label: p.name }))
             ]}
           />
           <Select
@@ -121,7 +154,7 @@ export default function SearchPage() {
             onChange={setDepartmentFilter}
             options={[
               { value: '', label: lang === 'fa' ? 'همه' : 'All' },
-              ...mockDepartments.map(d => ({ value: d.id, label: d.name }))
+              ...departments.map(d => ({ value: d.id, label: d.name }))
             ]}
           />
           <div>
@@ -197,7 +230,12 @@ export default function SearchPage() {
             </Card>
           </div>
         ))}
-        {results.length === 0 && !loading && <EmptyState title={t.search.no_results} />}
+        {error && (
+          <Card className="mb-4 !p-4 border border-red-200 bg-danger-50">
+            <p className="text-sm text-danger-600">{error}</p>
+          </Card>
+        )}
+        {results.length === 0 && !loading && !error && <EmptyState title={t.search.no_results} />}
       </div>
     </div>
   );

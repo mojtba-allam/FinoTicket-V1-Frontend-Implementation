@@ -5,59 +5,95 @@ import { Button, Input, Card } from '../../components/ui';
 import { fa } from '../../i18n';
 import { useApp } from '../../app/providers';
 import { mockStore } from '../../lib/api/mockStore';
+import { DEMO_CLIENT } from '../../lib/api/config';
+import { ApiError } from '../../lib/api/http';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { setUser } = useApp();
+  const { setUser, session } = useApp();
   const [email, setEmail] = useState('admin@finoticket.ir');
   const [password, setPassword] = useState('password');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  /** Live mode: exchange the demo client credentials for a bearer token. */
+  const loginLive = async (consoleType: 'platform' | 'tenant', displayName: string) => {
+    const loggedIn = await session.login({
+      clientId: DEMO_CLIENT.clientId,
+      clientSecret: DEMO_CLIENT.clientSecret,
+      console: consoleType,
+      displayName,
+      email,
+    });
+
+    navigate(loggedIn.console === 'platform' ? '/platform' : '/desk');
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    setTimeout(() => {
-      if (email && password) {
-        // Look up user by email from mockStore
-        const user = mockStore.getUserByEmail(email);
-        
-        if (user) {
-          if (user.status === 'SUSPENDED') {
-            setError(fa.auth.invalid_credentials);
-          } else {
-            setUser(user);
-            if (user.console === 'platform') {
-              navigate('/platform');
-            } else {
-              navigate('/desk');
-            }
-          }
-        } else {
-          setError(fa.auth.invalid_credentials);
-        }
+
+    try {
+      if (!email || !password) {
+        setError(fa.auth.invalid_credentials);
+        return;
+      }
+
+      if (session.isLive) {
+        const consoleType = email.startsWith('super') ? 'platform' : 'tenant';
+        await loginLive(consoleType, email);
+        return;
+      }
+
+      // Mock mode: look the user up in the in-memory store.
+      const user = mockStore.getUserByEmail(email);
+
+      if (!user) {
+        setError(fa.auth.invalid_credentials);
+        return;
+      }
+
+      if (user.status === 'SUSPENDED') {
+        setError(fa.auth.invalid_credentials);
+        return;
+      }
+
+      setUser(user);
+      navigate(user.console === 'platform' ? '/platform' : '/desk');
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || fa.auth.invalid_credentials);
       } else {
         setError(fa.auth.invalid_credentials);
       }
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
-  const handleQuickLogin = (email: string) => {
+  const handleQuickLogin = async (email: string) => {
+    setError('');
     setLoading(true);
     setEmail(email);
-    setTimeout(() => {
+
+    try {
+      if (session.isLive) {
+        const consoleType = email.startsWith('super') ? 'platform' : 'tenant';
+        await loginLive(consoleType, email);
+        return;
+      }
+
       const user = mockStore.getUserByEmail(email);
       if (user) {
         setUser(user);
-        if (user.console === 'platform') {
-          navigate('/platform');
-        } else {
-          navigate('/desk');
-        }
+        navigate(user.console === 'platform' ? '/platform' : '/desk');
       }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : fa.auth.invalid_credentials);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (

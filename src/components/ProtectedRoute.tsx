@@ -10,12 +10,30 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles, consoleType }: ProtectedRouteProps) {
-  const { user } = useApp();
+  const { user, session, embedded, lang } = useApp();
   const location = useLocation();
 
-  // Check if user is authenticated (in real app, check auth state)
-  // For now, we assume user is authenticated if they exist
-  if (!user) {
+  // Live mode requires a bearer token; mock mode relies on the demo user.
+  if (!session.isAuthenticated) {
+    // Inside an embed there is no login page to send the user to — the host
+    // supplies a token via postMessage. Render a waiting panel instead of
+    // redirecting to a route that does not exist in the shadow root.
+    if (embedded) {
+      return (
+        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 p-8 text-center">
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent opacity-40"
+            aria-hidden="true"
+          />
+          <p className="text-sm opacity-70">
+            {lang === 'fa'
+              ? 'در انتظار احراز هویت…'
+              : 'Waiting for authentication…'}
+          </p>
+        </div>
+      );
+    }
+
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

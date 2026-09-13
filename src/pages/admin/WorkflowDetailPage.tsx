@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Plus, Trash2, GripVertical, Play, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { Button, Card, Input, Select, Badge, Modal } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection, describeError } from '../../lib/api/hooks';
+import { getDataApi } from '../../lib/api/dataApi';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
 import type { Workflow, WorkflowStep } from '../../types';
 
@@ -10,10 +13,14 @@ export default function WorkflowDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { lang, showToast } = useApp();
-  
-  useMockStore();
-  
-  const workflow = mockStore.getWorkflow(id!);
+
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: workflows, loading } = useCollection(
+    () => mockStore.getWorkflows(),
+    (api) => api.workflows.list(),
+  );
+
+  const workflow = id ? workflows.find(item => item.id === id) ?? null : null;
   
   const [showAddStep, setShowAddStep] = useState(false);
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
@@ -31,6 +38,7 @@ export default function WorkflowDetailPage() {
   ]);
 
   if (!workflow) {
+    if (loading) return null;
     return (
       <div className="p-6">
         <div className="text-center py-12">
@@ -59,17 +67,29 @@ export default function WorkflowDetailPage() {
     setShowAddStep(true);
   };
 
-  const handleSaveStep = () => {
+  const handleSaveStep = async () => {
     try {
       const config = JSON.parse(stepConfig);
-      
+
       if (editingStep) {
+        // No API method to update a step; mock-only for now.
         mockStore.updateWorkflowStep(workflow.id, editingStep.id, {
           type: stepType,
           step_key: stepKey,
           config,
         });
         showToast(lang === 'fa' ? 'مرحله بروزرسانی شد' : 'Step updated', 'success');
+      } else if (isLiveMode()) {
+        await getDataApi().workflows.addStep(workflow.id, {
+          type: stepType,
+          step_key: stepKey,
+          config,
+          sort_order: workflow.steps.length,
+        });
+        showToast(lang === 'fa' ? 'مرحله اضافه شد' : 'Step added', 'success');
+        setShowAddStep(false);
+        window.location.reload();
+        return;
       } else {
         mockStore.addWorkflowStep(workflow.id, {
           type: stepType,
@@ -82,6 +102,10 @@ export default function WorkflowDetailPage() {
       
       setShowAddStep(false);
     } catch (error) {
+      if (isLiveMode() && !(error instanceof SyntaxError)) {
+        showToast(describeError(error as Error) ?? 'Save failed', 'error');
+        return;
+      }
       showToast(lang === 'fa' ? 'فرمت JSON نامعتبر است' : 'Invalid JSON format', 'error');
     }
   };

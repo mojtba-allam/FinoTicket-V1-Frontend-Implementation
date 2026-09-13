@@ -1,24 +1,43 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, UserCheck, Users, Shield, Clock, Workflow, Zap, BookOpen, Globe, Webhook, FileSearch, Plus } from 'lucide-react';
 import { Card, Badge, Button, Modal, Input, Select, EmptyState } from '../../components/ui';
-import { mockKnowledgeBases, mockAPIClients, mockWebhooks, mockAuditLogs } from '../../data/mock';
 import { useApp } from '../../app/providers';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { getDataApi } from '../../lib/api/dataApi';
+import { describeError, useCollection } from '../../lib/api/hooks';
+import type { AuditLog } from '../../types';
 
 export function AdminDepartmentsPage() {
   const { t, lang } = useApp();
   const navigate = useNavigate();
   useMockStore();
-  const departments = mockStore.getDepartments();
-  
+
+  const { data: departments, loading } = useCollection(
+    () => mockStore.getDepartments(),
+    (api) => api.departments.list(),
+    [],
+  );
+
+  // Live mode needs product names by id (the mock store exposes `getProduct`).
+  const { data: products } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+    [],
+  );
+  const productsById = useMemo(() => {
+    const map = new Map<string, any>();
+    (products as any[]).forEach((p: any) => map.set(p.id, p));
+    return map;
+  }, [products]);
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">{t.admin.departments}</h1>
       </div>
       
-      {departments.length === 0 ? (
+      {departments.length === 0 && !loading ? (
         <EmptyState
           icon={<Building2 className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'دپارتمانی وجود ندارد' : 'No departments'}
@@ -27,7 +46,7 @@ export function AdminDepartmentsPage() {
       ) : (
         <div className="grid grid-cols-2 gap-4">
           {departments.map(d => {
-            const product = mockStore.getProduct(d.product_id);
+            const product = productsById.get(d.product_id);
             return (
               <div key={d.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/admin/departments/${d.id}`)}>
                 <Card>
@@ -62,14 +81,32 @@ export function AdminAgentsPage() {
   const { t, lang, showToast } = useApp();
   const navigate = useNavigate();
   useMockStore();
-  
+
+  const api = getDataApi();
+
   const [search, setSearch] = useState('');
   const [presenceFilter, setPresenceFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editingAgent, setEditingAgent] = useState<any>(null);
-  
-  const agents = mockStore.getAgents();
-  
+
+  const { data: agents, loading, reload } = useCollection(
+    () => mockStore.getAgents(),
+    (a) => a.agents.list(),
+    [],
+  );
+
+  // User picker + email lookup for agent cards.
+  const { data: users } = useCollection(
+    () => mockStore.getUsers(),
+    (a) => a.users.list(),
+    [],
+  );
+  const usersById = useMemo(() => {
+    const map = new Map<string, any>();
+    (users as any[]).forEach((u: any) => map.set(u.id, u));
+    return map;
+  }, [users]);
+
   const filteredAgents = agents.filter(agent => {
     const matchesSearch = !search || 
       agent.display_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -88,21 +125,45 @@ export function AdminAgentsPage() {
     setShowCreate(true);
   };
 
-  const handleSave = (agentData: any) => {
-    if (editingAgent) {
-      mockStore.updateAgent(editingAgent.id, agentData);
-      showToast(lang === 'fa' ? 'کارشناس بروزرسانی شد' : 'Agent updated', 'success');
-    } else {
-      mockStore.createAgent(agentData);
-      showToast(lang === 'fa' ? 'کارشناس ایجاد شد' : 'Agent created', 'success');
+  const handleSave = async (agentData: any) => {
+    try {
+      if (api.mode === 'live') {
+        if (editingAgent) {
+          await api.agents.update(editingAgent.id, agentData);
+        } else {
+          await api.agents.create(agentData);
+        }
+      } else if (editingAgent) {
+        mockStore.updateAgent(editingAgent.id, agentData);
+      } else {
+        mockStore.createAgent(agentData);
+      }
+      showToast(
+        editingAgent
+          ? (lang === 'fa' ? 'کارشناس بروزرسانی شد' : 'Agent updated')
+          : (lang === 'fa' ? 'کارشناس ایجاد شد' : 'Agent created'),
+        'success',
+      );
+      setShowCreate(false);
+      setEditingAgent(null);
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
     }
-    setShowCreate(false);
-    setEditingAgent(null);
   };
 
-  const handleDeactivate = (agentId: string) => {
-    mockStore.updateAgent(agentId, { status: 'INACTIVE' });
-    showToast(lang === 'fa' ? 'کارشناس غیرفعال شد' : 'Agent deactivated', 'success');
+  const handleDeactivate = async (agentId: string) => {
+    try {
+      if (api.mode === 'live') {
+        await api.agents.update(agentId, { status: 'INACTIVE' });
+      } else {
+        mockStore.updateAgent(agentId, { status: 'INACTIVE' });
+      }
+      showToast(lang === 'fa' ? 'کارشناس غیرفعال شد' : 'Agent deactivated', 'success');
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
+    }
   };
 
   return (
@@ -139,7 +200,7 @@ export function AdminAgentsPage() {
       </Card>
 
       {/* Agents Grid */}
-      {filteredAgents.length === 0 ? (
+      {filteredAgents.length === 0 && !loading ? (
         <EmptyState
           icon={<Users className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'کارشناسی یافت نشد' : 'No agents found'}
@@ -172,7 +233,7 @@ export function AdminAgentsPage() {
               </div>
               <div className="space-y-1.5 text-sm text-text-muted">
                 <p className="text-xs">{(() => {
-                  const user = mockStore.getUser(agent.user_id);
+                  const user = usersById.get(agent.user_id);
                   return user ? user.email : '';
                 })()}</p>
                 <p>{lang === 'fa' ? 'زمان‌بندی' : 'Timezone'}: {agent.timezone}</p>
@@ -201,6 +262,7 @@ export function AdminAgentsPage() {
       {showCreate && (
         <AgentFormModal
           agent={editingAgent}
+          users={users}
           onSave={handleSave}
           onClose={() => {
             setShowCreate(false);
@@ -212,10 +274,9 @@ export function AdminAgentsPage() {
   );
 }
 
-function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data: any) => void; onClose: () => void }) {
+function AgentFormModal({ agent, users, onSave, onClose }: { agent: any; users: any[]; onSave: (data: any) => void; onClose: () => void }) {
   const { lang, showToast } = useApp();
-  useMockStore();
-  const users = mockStore.getUsers().filter(u => u.console === 'tenant' && (u.role === 'AGENT' || u.role === 'ADMIN' || u.role === 'MANAGER'));
+  const eligibleUsers = users.filter(u => u.console === 'tenant' && (u.role === 'AGENT' || u.role === 'ADMIN' || u.role === 'MANAGER'));
   
   const [formData, setFormData] = useState({
     user_id: agent?.user_id || '',
@@ -228,7 +289,7 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
   });
 
   const handleUserSelect = (userId: string) => {
-    const user = users.find(u => u.id === userId);
+    const user = eligibleUsers.find(u => u.id === userId);
     setFormData({ 
       ...formData, 
       user_id: userId,
@@ -258,7 +319,7 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
           onChange={handleUserSelect}
           options={[
             { value: '', label: lang === 'fa' ? 'انتخاب کاربر' : 'Select user' },
-            ...users.map(u => ({ value: u.id, label: `${u.display_name} (${u.email})` })),
+            ...eligibleUsers.map(u => ({ value: u.id, label: `${u.display_name} (${u.email})` })),
           ]}
           required
         />
@@ -323,6 +384,8 @@ function AgentFormModal({ agent, onSave, onClose }: { agent: any; onSave: (data:
 export function AdminUsersPage() {
   const { t, lang, showToast } = useApp();
   useMockStore();
+
+  const api = getDataApi();
   
   const [showInvite, setShowInvite] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -331,28 +394,55 @@ export function AdminUsersPage() {
   const [role, setRole] = useState<'OWNER' | 'ADMIN' | 'MANAGER' | 'AGENT' | 'VIEWER'>('VIEWER');
   const [status, setStatus] = useState<'ACTIVE' | 'INVITED' | 'SUSPENDED'>('INVITED');
 
-  const users = mockStore.getUsers().filter(u => u.console === 'tenant');
+  const { data: allUsers, loading, reload } = useCollection(
+    () => mockStore.getUsers(),
+    (a) => a.users.list(),
+    [],
+  );
+  const users = allUsers.filter(u => u.console === 'tenant');
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     if (!email.trim() || !displayName.trim()) {
       showToast(lang === 'fa' ? 'لطفاً تمام فیلدها را پر کنید' : 'Please fill all fields', 'error');
       return;
     }
 
     if (editingUser) {
+      // TODO(L10): no PATCH /users/{uuid} endpoint yet.
+      // Role/status edits are mock-only until the backend exposes user updates.
+      if (api.mode === 'live') {
+        showToast(
+          lang === 'fa'
+            ? 'ویرایش کاربر از طریق API پشتیبانی نمی‌شود'
+            : 'Editing users is not available via the API yet',
+          'error',
+        );
+        return;
+      }
       mockStore.updateUser(editingUser.id, { role, status });
       showToast(lang === 'fa' ? 'کاربر بروزرسانی شد' : 'User updated', 'success');
-    } else {
-      mockStore.inviteUser({
-        email,
-        display_name: displayName,
-        role,
-        status,
-      });
-      showToast(lang === 'fa' ? 'دعوت‌نامه ارسال شد' : 'Invitation sent', 'success');
+      resetForm();
+      reload();
+      return;
     }
 
-    resetForm();
+    try {
+      if (api.mode === 'live') {
+        await api.users.invite({ email, name: displayName, role });
+      } else {
+        mockStore.inviteUser({
+          email,
+          display_name: displayName,
+          role,
+          status,
+        });
+      }
+      showToast(lang === 'fa' ? 'دعوت‌نامه ارسال شد' : 'Invitation sent', 'success');
+      resetForm();
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
+    }
   };
 
   const resetForm = () => {
@@ -373,9 +463,20 @@ export function AdminUsersPage() {
     setShowInvite(true);
   };
 
-  const handleDeactivate = (userId: string) => {
+  const handleDeactivate = async (userId: string) => {
+    // TODO(L10): no PATCH /users/{uuid} endpoint yet — mock-only in every mode.
+    if (api.mode === 'live') {
+      showToast(
+        lang === 'fa'
+          ? 'ویرایش کاربر از طریق API پشتیبانی نمی‌شود'
+          : 'Editing users is not available via the API yet',
+        'error',
+      );
+      return;
+    }
     mockStore.updateUser(userId, { status: 'SUSPENDED' });
     showToast(lang === 'fa' ? 'کاربر غیرفعال شد' : 'User deactivated', 'success');
+    reload();
   };
 
   return (
@@ -387,7 +488,7 @@ export function AdminUsersPage() {
         </Button>
       </div>
 
-      {users.length === 0 ? (
+      {users.length === 0 && !loading ? (
         <EmptyState
           icon={<Users className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'کاربری وجود ندارد' : 'No users'}
@@ -516,35 +617,50 @@ export function AdminSLAPage() {
   const [status, setStatus] = useState('ACTIVE');
 
   useMockStore();
-  const slaPolicies = mockStore.getSLAPolicies();
+  const api = getDataApi();
+  const { data: slaPolicies, loading, reload } = useCollection(
+    () => mockStore.getSLAPolicies(),
+    (a) => a.slaPolicies.list(),
+    [],
+  );
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) {
       showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
       return;
     }
 
-    if (editingSLA) {
-      mockStore.updateSLAPolicy(editingSLA.id, {
-        name,
-        priority: priority as any,
-        first_response_seconds: firstResponseMinutes * 60,
-        resolution_seconds: resolutionHours * 3600,
-        status: status as any,
-      });
-      showToast(lang === 'fa' ? 'SLA بروزرسانی شد' : 'SLA updated', 'success');
-    } else {
-      mockStore.createSLAPolicy({
-        name,
-        priority: priority as any,
-        first_response_seconds: firstResponseMinutes * 60,
-        resolution_seconds: resolutionHours * 3600,
-        status: status as any,
-      });
-      showToast(lang === 'fa' ? 'SLA ایجاد شد' : 'SLA created', 'success');
-    }
+    const payload = {
+      name,
+      priority: priority as any,
+      first_response_seconds: firstResponseMinutes * 60,
+      resolution_seconds: resolutionHours * 3600,
+      status: status as any,
+    };
 
-    resetForm();
+    try {
+      if (api.mode === 'live') {
+        if (editingSLA) {
+          await api.slaPolicies.update(editingSLA.id, payload);
+        } else {
+          await api.slaPolicies.create(payload);
+        }
+      } else if (editingSLA) {
+        mockStore.updateSLAPolicy(editingSLA.id, payload);
+      } else {
+        mockStore.createSLAPolicy(payload);
+      }
+      showToast(
+        editingSLA
+          ? (lang === 'fa' ? 'SLA بروزرسانی شد' : 'SLA updated')
+          : (lang === 'fa' ? 'SLA ایجاد شد' : 'SLA created'),
+        'success',
+      );
+      resetForm();
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
+    }
   };
 
   const resetForm = () => {
@@ -603,6 +719,7 @@ export function AdminSLAPage() {
             </Card>
           </div>
         ))}
+        {slaPolicies.length === 0 && !loading && <EmptyState title={lang === 'fa' ? 'SLA وجود ندارد' : 'No SLA policies'} />}
       </div>
 
       <Modal open={showCreate} onClose={resetForm} title={editingSLA ? (lang === 'fa' ? 'ویرایش SLA' : 'Edit SLA') : (lang === 'fa' ? 'SLA جدید' : 'New SLA')}>
@@ -678,30 +795,53 @@ export function AdminWorkflowsPage() {
   const { t, lang, showToast } = useApp();
   const navigate = useNavigate();
   useMockStore();
-  const workflows = mockStore.getWorkflows();
+  const api = getDataApi();
+  const { data: workflows, loading, reload } = useCollection(
+    () => mockStore.getWorkflows(),
+    (a) => a.workflows.list(),
+    [],
+  );
   const [showCreate, setShowCreate] = useState(false);
   const [workflowName, setWorkflowName] = useState('');
   const [workflowEvent, setWorkflowEvent] = useState('ticket.created');
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!workflowName.trim()) {
       showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
       return;
     }
 
-    const newWorkflow = mockStore.createWorkflow({
-      name: workflowName,
-      event: workflowEvent,
-      status: 'DRAFT',
-    });
+    try {
+      let newWorkflowId: string | undefined;
+      if (api.mode === 'live') {
+        const created = await api.workflows.create({
+          name: workflowName,
+          event: workflowEvent,
+          status: 'DRAFT',
+        });
+        newWorkflowId = created.id;
+      } else {
+        const newWorkflow = mockStore.createWorkflow({
+          name: workflowName,
+          event: workflowEvent,
+          status: 'DRAFT',
+        });
+        newWorkflowId = newWorkflow.id;
+      }
 
-    showToast(lang === 'fa' ? 'جریان کاری ایجاد شد' : 'Workflow created', 'success');
-    setShowCreate(false);
-    setWorkflowName('');
-    setWorkflowEvent('ticket.created');
-    
-    // Navigate to the new workflow detail page
-    navigate(`/admin/workflows/${newWorkflow.id}`);
+      showToast(lang === 'fa' ? 'جریان کاری ایجاد شد' : 'Workflow created', 'success');
+      setShowCreate(false);
+      setWorkflowName('');
+      setWorkflowEvent('ticket.created');
+      reload();
+
+      // Navigate to the new workflow detail page
+      if (newWorkflowId) {
+        navigate(`/admin/workflows/${newWorkflowId}`);
+      }
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
+    }
   };
   
   return (
@@ -713,7 +853,7 @@ export function AdminWorkflowsPage() {
         </Button>
       </div>
 
-      {workflows.length === 0 ? (
+      {workflows.length === 0 && !loading ? (
         <EmptyState
           icon={<Workflow className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'جریان کاری وجود ندارد' : 'No workflows'}
@@ -785,11 +925,17 @@ export function AdminWorkflowsPage() {
 export function AdminAutomationsPage() {
   const { t, lang, showToast } = useApp();
   useMockStore();
+
+  const api = getDataApi();
   
   const [showCreate, setShowCreate] = useState(false);
   const [editingAutomation, setEditingAutomation] = useState<any>(null);
   
-  const automations = mockStore.getAutomations();
+  const { data: automations, loading, reload } = useCollection(
+    () => mockStore.getAutomations(),
+    (a) => a.automations.list(),
+    [],
+  );
 
   const handleCreate = () => {
     setEditingAutomation(null);
@@ -801,27 +947,51 @@ export function AdminAutomationsPage() {
     setShowCreate(true);
   };
 
-  const handleSave = (automationData: any) => {
-    if (editingAutomation) {
-      mockStore.updateAutomation(editingAutomation.id, automationData);
-      showToast(lang === 'fa' ? 'اتوماسیون بروزرسانی شد' : 'Automation updated', 'success');
-    } else {
-      mockStore.createAutomation(automationData);
-      showToast(lang === 'fa' ? 'اتوماسیون ایجاد شد' : 'Automation created', 'success');
+  const handleSave = async (automationData: any) => {
+    try {
+      if (api.mode === 'live') {
+        if (editingAutomation) {
+          await api.automations.update(editingAutomation.id, automationData);
+        } else {
+          await api.automations.create(automationData);
+        }
+      } else if (editingAutomation) {
+        mockStore.updateAutomation(editingAutomation.id, automationData);
+      } else {
+        mockStore.createAutomation(automationData);
+      }
+      showToast(
+        editingAutomation
+          ? (lang === 'fa' ? 'اتوماسیون بروزرسانی شد' : 'Automation updated')
+          : (lang === 'fa' ? 'اتوماسیون ایجاد شد' : 'Automation created'),
+        'success',
+      );
+      setShowCreate(false);
+      setEditingAutomation(null);
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
     }
-    setShowCreate(false);
-    setEditingAutomation(null);
   };
 
-  const handleToggle = (automationId: string, currentStatus: string) => {
+  const handleToggle = async (automationId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    mockStore.updateAutomation(automationId, { status: newStatus });
-    showToast(
-      newStatus === 'ACTIVE' 
-        ? (lang === 'fa' ? 'اتوماسیون فعال شد' : 'Automation enabled')
-        : (lang === 'fa' ? 'اتوماسیون غیرفعال شد' : 'Automation disabled'),
-      'success'
-    );
+    try {
+      if (api.mode === 'live') {
+        await api.automations.update(automationId, { status: newStatus });
+      } else {
+        mockStore.updateAutomation(automationId, { status: newStatus });
+      }
+      showToast(
+        newStatus === 'ACTIVE' 
+          ? (lang === 'fa' ? 'اتوماسیون فعال شد' : 'Automation enabled')
+          : (lang === 'fa' ? 'اتوماسیون غیرفعال شد' : 'Automation disabled'),
+        'success'
+      );
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
+    }
   };
 
   return (
@@ -833,7 +1003,7 @@ export function AdminAutomationsPage() {
         </Button>
       </div>
 
-      {automations.length === 0 ? (
+      {automations.length === 0 && !loading ? (
         <EmptyState
           icon={<Zap className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'اتوماسیونی وجود ندارد' : 'No automations'}
@@ -1109,14 +1279,28 @@ export function AdminKnowledgeBasesPage() {
   const { t, lang, showToast } = useApp();
   const navigate = useNavigate();
   useMockStore();
+  const api = getDataApi();
   
   const [showCreate, setShowCreate] = useState(false);
-  const knowledgeBases = mockStore.getKnowledgeBases();
+  const { data: knowledgeBases, loading, reload } = useCollection(
+    () => mockStore.getKnowledgeBases(),
+    (a) => a.knowledgeBases.list(),
+    [],
+  );
 
-  const handleCreate = (kbData: any) => {
-    mockStore.createKnowledgeBase(kbData);
-    showToast(lang === 'fa' ? 'پایگاه دانش ایجاد شد' : 'Knowledge base created', 'success');
-    setShowCreate(false);
+  const handleCreate = async (kbData: any) => {
+    try {
+      if (api.mode === 'live') {
+        await api.knowledgeBases.create(kbData);
+      } else {
+        mockStore.createKnowledgeBase(kbData);
+      }
+      showToast(lang === 'fa' ? 'پایگاه دانش ایجاد شد' : 'Knowledge base created', 'success');
+      setShowCreate(false);
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
+    }
   };
 
   return (
@@ -1128,7 +1312,7 @@ export function AdminKnowledgeBasesPage() {
         </Button>
       </div>
 
-      {knowledgeBases.length === 0 ? (
+      {knowledgeBases.length === 0 && !loading ? (
         <EmptyState
           icon={<BookOpen className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'پایگاه دانش وجود ندارد' : 'No knowledge bases'}
@@ -1235,48 +1419,91 @@ function KnowledgeBaseFormModal({ onSave, onClose }: { onSave: (data: any) => vo
 export function AdminAPIClientsPage() {
   const { t, lang, showToast } = useApp();
   useMockStore();
+
+  const api = getDataApi();
   
   const [showCreate, setShowCreate] = useState(false);
   const [showSecret, setShowSecret] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<any>(null);
   
-  const clients = mockStore.getAPIClients();
+  const { data: clients, loading, reload } = useCollection(
+    () => mockStore.getAPIClients(),
+    (a) => a.apiClients.list(),
+    [],
+  );
 
   const handleCreate = () => {
     setEditingClient(null);
     setShowCreate(true);
   };
 
-  const handleSave = (clientData: any) => {
-    if (editingClient) {
-      mockStore.updateAPIClient(editingClient.id, clientData);
-      showToast(lang === 'fa' ? 'کلاینت بروزرسانی شد' : 'Client updated', 'success');
-    } else {
-      const newClient = mockStore.createAPIClient(clientData);
-      setShowSecret(newClient.client_secret!);
-      showToast(lang === 'fa' ? 'کلاینت ایجاد شد' : 'Client created', 'success');
+  const handleSave = async (clientData: any) => {
+    try {
+      if (api.mode === 'live') {
+        if (editingClient) {
+          await api.apiClients.update(editingClient.id, clientData);
+        } else {
+          const newClient = await api.apiClients.create(clientData);
+          if (newClient.client_secret) setShowSecret(newClient.client_secret);
+        }
+      } else if (editingClient) {
+        mockStore.updateAPIClient(editingClient.id, clientData);
+      } else {
+        const newClient = mockStore.createAPIClient(clientData);
+        setShowSecret(newClient.client_secret!);
+      }
+      showToast(
+        editingClient
+          ? (lang === 'fa' ? 'کلاینت بروزرسانی شد' : 'Client updated')
+          : (lang === 'fa' ? 'کلاینت ایجاد شد' : 'Client created'),
+        'success',
+      );
+      setShowCreate(false);
+      setEditingClient(null);
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
     }
-    setShowCreate(false);
-    setEditingClient(null);
   };
 
-  const handleRotateSecret = (clientId: string) => {
-    const newSecret = mockStore.rotateAPIClientSecret(clientId);
-    if (newSecret) {
-      setShowSecret(newSecret);
-      showToast(lang === 'fa' ? 'رمز چرخانده شد' : 'Secret rotated', 'success');
+  const handleRotateSecret = async (clientId: string) => {
+    // Live mode: the API only exposes `revoke` (no secret-rotation endpoint),
+    // so "rotate" revokes the current client credentials server-side.
+    try {
+      if (api.mode === 'live') {
+        await api.apiClients.revoke(clientId);
+        showToast(lang === 'fa' ? 'کلاینت باطل شد' : 'Client revoked', 'success');
+        reload();
+        return;
+      }
+      const newSecret = mockStore.rotateAPIClientSecret(clientId);
+      if (newSecret) {
+        setShowSecret(newSecret);
+        showToast(lang === 'fa' ? 'رمز چرخانده شد' : 'Secret rotated', 'success');
+      }
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
     }
   };
 
-  const handleToggleStatus = (clientId: string, currentStatus: string) => {
+  const handleToggleStatus = async (clientId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'ACTIVE' ? 'REVOKED' : 'ACTIVE';
-    mockStore.updateAPIClient(clientId, { status: newStatus });
-    showToast(
-      newStatus === 'ACTIVE' 
-        ? (lang === 'fa' ? 'کلاینت فعال شد' : 'Client activated')
-        : (lang === 'fa' ? 'کلاینت غیرفعال شد' : 'Client revoked'),
-      'success'
-    );
+    try {
+      if (api.mode === 'live') {
+        await api.apiClients.update(clientId, { status: newStatus });
+      } else {
+        mockStore.updateAPIClient(clientId, { status: newStatus });
+      }
+      showToast(
+        newStatus === 'ACTIVE' 
+          ? (lang === 'fa' ? 'کلاینت فعال شد' : 'Client activated')
+          : (lang === 'fa' ? 'کلاینت غیرفعال شد' : 'Client revoked'),
+        'success'
+      );
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
+    }
   };
 
   const availableScopes = [
@@ -1298,7 +1525,7 @@ export function AdminAPIClientsPage() {
         </Button>
       </div>
 
-      {clients.length === 0 ? (
+      {clients.length === 0 && !loading ? (
         <EmptyState
           icon={<Globe className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'کلاینت API وجود ندارد' : 'No API clients'}
@@ -1464,12 +1691,18 @@ function APIClientFormModal({ client, scopes, onSave, onClose }: { client: any; 
 export function AdminWebhooksPage() {
   const { t, lang, showToast } = useApp();
   useMockStore();
+
+  const api = getDataApi();
   
   const [showCreate, setShowCreate] = useState(false);
   const [editingWebhook, setEditingWebhook] = useState<any>(null);
   const [showDeliveries, setShowDeliveries] = useState<string | null>(null);
   
-  const webhooks = mockStore.getWebhooks();
+  const { data: webhooks, loading, reload } = useCollection(
+    () => mockStore.getWebhooks(),
+    (a) => a.webhooks.list(),
+    [],
+  );
 
   const handleCreate = () => {
     setEditingWebhook(null);
@@ -1481,18 +1714,34 @@ export function AdminWebhooksPage() {
     setShowCreate(true);
   };
 
-  const handleSave = (webhookData: any) => {
-    if (editingWebhook) {
-      mockStore.updateWebhook(editingWebhook.id, webhookData);
-      showToast(lang === 'fa' ? 'وبهوک بروزرسانی شد' : 'Webhook updated', 'success');
-    } else {
-      mockStore.createWebhook(webhookData);
-      showToast(lang === 'fa' ? 'وبهوک ایجاد شد' : 'Webhook created', 'success');
+  const handleSave = async (webhookData: any) => {
+    try {
+      if (api.mode === 'live') {
+        if (editingWebhook) {
+          await api.webhooks.update(editingWebhook.id, webhookData);
+        } else {
+          await api.webhooks.create(webhookData);
+        }
+      } else if (editingWebhook) {
+        mockStore.updateWebhook(editingWebhook.id, webhookData);
+      } else {
+        mockStore.createWebhook(webhookData);
+      }
+      showToast(
+        editingWebhook
+          ? (lang === 'fa' ? 'وبهوک بروزرسانی شد' : 'Webhook updated')
+          : (lang === 'fa' ? 'وبهوک ایجاد شد' : 'Webhook created'),
+        'success',
+      );
+      setShowCreate(false);
+      setEditingWebhook(null);
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
     }
-    setShowCreate(false);
-    setEditingWebhook(null);
   };
 
+  // Test delivery is mock-only: there is no "send test webhook" endpoint in the DataApi.
   const handleTestDelivery = (webhookId: string) => {
     const webhook = mockStore.getWebhook(webhookId);
     if (!webhook || webhook.events.length === 0) {
@@ -1521,15 +1770,24 @@ export function AdminWebhooksPage() {
     );
   };
 
-  const handleToggleStatus = (webhookId: string, currentStatus: string) => {
+  const handleToggleStatus = async (webhookId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    mockStore.updateWebhook(webhookId, { status: newStatus });
-    showToast(
-      newStatus === 'ACTIVE' 
-        ? (lang === 'fa' ? 'وبهوک فعال شد' : 'Webhook activated')
-        : (lang === 'fa' ? 'وبهوک غیرفعال شد' : 'Webhook deactivated'),
-      'success'
-    );
+    try {
+      if (api.mode === 'live') {
+        await api.webhooks.update(webhookId, { status: newStatus });
+      } else {
+        mockStore.updateWebhook(webhookId, { status: newStatus });
+      }
+      showToast(
+        newStatus === 'ACTIVE' 
+          ? (lang === 'fa' ? 'وبهوک فعال شد' : 'Webhook activated')
+          : (lang === 'fa' ? 'وبهوک غیرفعال شد' : 'Webhook deactivated'),
+        'success'
+      );
+      reload();
+    } catch (err) {
+      showToast(describeError(err as Error) ?? '', 'error');
+    }
   };
 
   const availableEvents = [
@@ -1555,7 +1813,7 @@ export function AdminWebhooksPage() {
         </Button>
       </div>
 
-      {webhooks.length === 0 ? (
+      {webhooks.length === 0 && !loading ? (
         <EmptyState
           icon={<Webhook className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'وبهوک وجود ندارد' : 'No webhooks'}
@@ -1628,6 +1886,7 @@ export function AdminWebhooksPage() {
       {/* Deliveries Drawer */}
       {showDeliveries && (
         <WebhookDeliveriesDrawer
+          webhook={webhooks.find(wh => wh.id === showDeliveries) ?? null}
           webhookId={showDeliveries}
           onClose={() => setShowDeliveries(null)}
         />
@@ -1718,12 +1977,15 @@ function WebhookFormModal({ webhook, events, onSave, onClose }: { webhook: any; 
   );
 }
 
-function WebhookDeliveriesDrawer({ webhookId, onClose }: { webhookId: string; onClose: () => void }) {
+function WebhookDeliveriesDrawer({ webhook, webhookId, onClose }: { webhook: any; webhookId: string; onClose: () => void }) {
   const { lang } = useApp();
   useMockStore();
-  
-  const webhook = mockStore.getWebhook(webhookId);
-  if (!webhook) return null;
+
+  // In live mode the list already carries deliveries; fall back to the mock
+  // store only when the webhook isn't present in the current collection.
+  const resolved = webhook ?? mockStore.getWebhook(webhookId);
+  if (!resolved) return null;
+  const webhookData = resolved;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -1736,14 +1998,14 @@ function WebhookDeliveriesDrawer({ webhookId, onClose }: { webhookId: string; on
           </button>
         </div>
         <div className="p-6 overflow-y-auto max-h-[calc(100vh-200px)]">
-          {webhook.deliveries.length === 0 ? (
+          {webhookData.deliveries.length === 0 ? (
             <EmptyState
               title={lang === 'fa' ? 'ارسالی وجود ندارد' : 'No deliveries yet'}
               description={lang === 'fa' ? 'هنوز هیچ ارسال انجام نشده' : 'No deliveries have been made yet'}
             />
           ) : (
             <div className="space-y-3">
-              {webhook.deliveries.map(delivery => (
+              {webhookData.deliveries.map((delivery: any) => (
                 <Card key={delivery.id}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -1799,7 +2061,17 @@ export function AdminAuditLogsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   
-  const logs = mockStore.getAuditLogs();
+  const { data: logs, loading } = useCollection(
+    () => mockStore.getAuditLogs() as unknown as AuditLog[],
+    (api) =>
+      api.auditLogs.list({
+        action: actionFilter || undefined,
+        entity_type: entityTypeFilter || undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+      }) as unknown as Promise<AuditLog[]>,
+    [actionFilter, entityTypeFilter, dateFrom, dateTo],
+  );
 
   const filteredLogs = logs.filter(log => {
     const matchesSearch = !search || 
@@ -1886,7 +2158,7 @@ export function AdminAuditLogsPage() {
       </Card>
 
       {/* Logs Table */}
-      {filteredLogs.length === 0 ? (
+      {filteredLogs.length === 0 && !loading ? (
         <EmptyState
           icon={<FileSearch className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'گزارشی یافت نشد' : 'No logs found'}

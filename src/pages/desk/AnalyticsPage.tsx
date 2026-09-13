@@ -1,9 +1,50 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart3, Inbox, AlertTriangle, Clock, Users, TrendingUp } from 'lucide-react';
-import { Card, KPICard, SegmentedControl, Skeleton } from '../../components/ui';
+import { Card, KPICard, SegmentedControl, Skeleton, EmptyState } from '../../components/ui';
 import { mockAnalytics } from '../../data/mock';
+import type { AnalyticsData } from '../../types';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
+
+/** Client-side slice of the API series for the selected range (7d / 30d / custom). */
+function sliceByRange(
+  data: AnalyticsData | undefined | null,
+  range: '7d' | '30d' | 'custom',
+  from: string,
+  to: string,
+): AnalyticsData {
+  // The live loader starts from an empty value before the request resolves, so
+  // every field is normalised here — the render path assumes full arrays.
+  const safe: AnalyticsData = {
+    kpis: data?.kpis ?? mockAnalytics.kpis,
+    tickets_over_time: data?.tickets_over_time ?? [],
+    by_status: data?.by_status ?? [],
+    by_priority: data?.by_priority ?? [],
+    sla_compliance: data?.sla_compliance ?? [],
+    by_department: data?.by_department ?? [],
+    agent_workload: data?.agent_workload ?? [],
+    by_channel: data?.by_channel ?? [],
+  };
+
+  if (range === 'custom' && (!from || !to)) return safe; // keep previous until both dates are set
+
+  const inRange = (d: string) => {
+    if (range === '30d') return true;
+    if (range === '7d') {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 6);
+      return new Date(d) >= new Date(cutoff.toDateString());
+    }
+    return new Date(d) >= new Date(from) && new Date(d) <= new Date(to);
+  };
+
+  return {
+    ...safe,
+    tickets_over_time: safe.tickets_over_time.filter((r) => inRange(r.date)),
+    sla_compliance: safe.sla_compliance.filter((r) => inRange(r.date)),
+  };
+}
 
 export default function AnalyticsPage() {
   const { t, product, lang } = useApp();
@@ -11,91 +52,41 @@ export default function AnalyticsPage() {
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState(mockAnalytics);
-  
+
   const COLORS = ['#0B7C8C', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#F97316'];
 
-  // Simulate loading when date range changes
+  // Live mode pulls the real tenant summary; mock mode keeps the demo series.
+  const { data: liveData, loading: liveLoading, error, mode } = useCollection(
+    () => mockAnalytics,
+    async (api) => {
+      const { toAnalyticsData } = await import('../../lib/api/adapters');
+      const res = await api.analytics.summary();
+      return res ? toAnalyticsData(res) : mockAnalytics;
+    },
+    [],
+  );
+
+  // Simulated loading shimmer on range change (kept for UX parity with the design).
   useEffect(() => {
-    // Only update data if:
-    // 1. dateRange is '7d' or '30d', OR
-    // 2. dateRange is 'custom' AND both customFrom and customTo are set
-    // Otherwise, keep previous data (don't reset to full series)
-    if (dateRange === 'custom' && (!customFrom || !customTo)) {
-      return; // Keep previous data, don't update
-    }
-
+    if (dateRange === 'custom' && (!customFrom || !customTo)) return;
     setLoading(true);
-    const timer = setTimeout(() => {
-      let filteredTickets = mockAnalytics.tickets_over_time;
-      let multiplier = 1;
-
-      if (dateRange === '7d') {
-        filteredTickets = mockAnalytics.tickets_over_time.slice(-7);
-        multiplier = 0.3;
-      } else if (dateRange === '30d') {
-        filteredTickets = mockAnalytics.tickets_over_time.slice(-30);
-        multiplier = 1;
-      } else if (dateRange === 'custom' && customFrom && customTo) {
-        const from = new Date(customFrom);
-        const to = new Date(customTo);
-        filteredTickets = mockAnalytics.tickets_over_time.filter(item => {
-          const itemDate = new Date(item.date);
-          return itemDate >= from && itemDate <= to;
-        });
-        // Calculate multiplier based on date range length
-        const days = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
-        multiplier = Math.min(days / 30, 3);
-      }
-      
-      // Helper function to scale array data
-      const scaleSeries = <T extends { count?: number; active?: number; percentage?: number }>(
-        arr: T[], 
-        mult: number
-      ): T[] => arr.map(item => {
-        const scaled = { ...item };
-        if ('count' in scaled && scaled.count !== undefined) {
-          scaled.count = Math.round(scaled.count * mult);
-        }
-        if ('active' in scaled && scaled.active !== undefined) {
-          scaled.active = Math.round(scaled.active * mult);
-        }
-        if ('percentage' in scaled && scaled.percentage !== undefined) {
-          // Keep percentage as is, but add some variance
-          scaled.percentage = Math.min(100, Math.max(0, scaled.percentage + (Math.random() * 10 - 5)));
-        }
-        return scaled;
-      });
-
-      setData({
-        ...mockAnalytics,
-        kpis: {
-          open_tickets: Math.round(mockAnalytics.kpis.open_tickets * multiplier),
-          unassigned: Math.round(mockAnalytics.kpis.unassigned * multiplier),
-          breached_sla: Math.round(mockAnalytics.kpis.breached_sla * multiplier),
-          waiting_customer: Math.round(mockAnalytics.kpis.waiting_customer * multiplier),
-          my_active: Math.round(mockAnalytics.kpis.my_active * multiplier),
-          avg_first_response: mockAnalytics.kpis.avg_first_response,
-          avg_resolution: mockAnalytics.kpis.avg_resolution,
-          satisfaction: mockAnalytics.kpis.satisfaction,
-        },
-        tickets_over_time: filteredTickets.map(item => ({
-          ...item,
-          created: Math.round(item.created * multiplier),
-          resolved: Math.round(item.resolved * multiplier),
-        })),
-        by_status: scaleSeries(mockAnalytics.by_status, multiplier),
-        by_priority: scaleSeries(mockAnalytics.by_priority, multiplier),
-        sla_compliance: scaleSeries(mockAnalytics.sla_compliance, multiplier),
-        by_department: scaleSeries(mockAnalytics.by_department, multiplier),
-        agent_workload: scaleSeries(mockAnalytics.agent_workload, multiplier),
-        by_channel: scaleSeries(mockAnalytics.by_channel, multiplier),
-      });
-      setLoading(false);
-    }, 300);
-    
+    const timer = setTimeout(() => setLoading(false), 300);
     return () => clearTimeout(timer);
   }, [dateRange, customFrom, customTo]);
+
+  const data = useMemo(
+    () => sliceByRange(liveData, dateRange, customFrom, customTo),
+    [liveData, dateRange, customFrom, customTo],
+  );
+
+  const busy = loading || liveLoading;
+
+  // True when the API answered but the tenant has no chart data yet.
+  const noSeriesData =
+    mode === 'live' &&
+    (data.tickets_over_time?.length ?? 0) === 0 &&
+    (data.by_status?.length ?? 0) === 0 &&
+    (data.by_priority?.length ?? 0) === 0;
 
   return (
     <div className="p-6">
@@ -114,6 +105,27 @@ export default function AnalyticsPage() {
           <span className="text-sm px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 font-medium">{product.name}</span>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-6 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+          {lang === 'fa' ? 'خطا در دریافت تحلیل‌ها: ' : 'Failed to load analytics: '}
+          {error.message}
+        </div>
+      )}
+
+      {noSeriesData && (
+        <Card className="mb-6">
+          <EmptyState
+            icon={<BarChart3 className="h-8 w-8" />}
+            title={lang === 'fa' ? 'داده‌ای برای نمایش نیست' : 'No analytics data yet'}
+            description={
+              lang === 'fa'
+                ? 'به‌محض ثبت تیکت، نمودارها به‌صورت خودکار پر می‌شوند.'
+                : 'Charts fill in automatically once tickets are created.'
+            }
+          />
+        </Card>
+      )}
 
       {/* Custom Date Range Inputs */}
       {dateRange === 'custom' && (
@@ -152,7 +164,7 @@ export default function AnalyticsPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        {loading ? (
+        {busy ? (
           <>
             <Card className="h-24"><Skeleton className="h-full w-full" /></Card>
             <Card className="h-24"><Skeleton className="h-full w-full" /></Card>
@@ -171,7 +183,7 @@ export default function AnalyticsPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-2 gap-6">
-        {loading ? (
+        {busy ? (
           <>
             <Card className="h-80"><Skeleton className="h-full w-full" /></Card>
             <Card className="h-80"><Skeleton className="h-full w-full" /></Card>

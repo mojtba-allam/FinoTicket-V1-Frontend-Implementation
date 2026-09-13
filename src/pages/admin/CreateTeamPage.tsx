@@ -2,21 +2,42 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { Button, Card, Input, Select } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection, describeError } from '../../lib/api/hooks';
+import { getDataApi } from '../../lib/api/dataApi';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
+import type { Team } from '../../types';
 
 export default function CreateTeamPage() {
   const { departmentId, categoryId } = useParams<{ departmentId?: string; categoryId?: string }>();
   const navigate = useNavigate();
   const { lang, showToast } = useApp();
-  
-  useMockStore();
-  const agents = mockStore.getAgents();
+
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: agents, loading: agentsLoading } = useCollection(
+    () => mockStore.getAgents(),
+    (api) => api.agents.list(),
+  );
+  const { data: allDepartments, loading: departmentsLoading } = useCollection(
+    () => mockStore.getDepartments(),
+    (api) => api.departments.list(),
+  );
+  const { data: allCategories, loading: categoriesLoading } = useCollection(
+    () => mockStore.getCategories(),
+    (api) => api.categories.list(),
+  );
+  const { data: allProducts, loading: productsLoading } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
+
+  const loading = agentsLoading || departmentsLoading || categoriesLoading || productsLoading;
 
   // Determine scope and get parent entities
-  const department = departmentId ? mockStore.getDepartment(departmentId) : null;
-  const category = categoryId ? mockStore.getCategory(categoryId) : null;
-  const product = department ? mockStore.getProduct(department.product_id) : null;
+  const department = departmentId ? allDepartments.find(item => item.id === departmentId) ?? null : null;
+  const category = categoryId ? allCategories.find(item => item.id === categoryId) ?? null : null;
+  const product = department ? allProducts.find(item => item.id === department.product_id) ?? null : null;
 
   const scope = category ? 'CATEGORY' : 'DEPARTMENT';
 
@@ -25,6 +46,7 @@ export default function CreateTeamPage() {
   const [leadId, setLeadId] = useState('');
 
   if (!department && !category) {
+    if (loading) return null;
     return (
       <div className="p-6">
         <div className="text-center py-12">
@@ -37,7 +59,7 @@ export default function CreateTeamPage() {
     );
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim() || !slug.trim()) {
       showToast(lang === 'fa' ? 'لطفاً تمام فیلدها را پر کنید' : 'Please fill all fields', 'error');
       return;
@@ -54,7 +76,7 @@ export default function CreateTeamPage() {
       return;
     }
 
-    const newTeam = mockStore.createTeam({
+    const teamData: Partial<Team> = {
       tenant_id: department?.tenant_id || category?.tenant_id || 'ten-1',
       product_id: department?.product_id || '',
       department_id: department?.id || category?.department_id || '',
@@ -70,7 +92,20 @@ export default function CreateTeamPage() {
           role: 'LEAD',
         },
       ],
-    });
+    };
+
+    if (isLiveMode()) {
+      try {
+        const created = await getDataApi().teams.create(teamData);
+        showToast(lang === 'fa' ? 'تیم ایجاد شد' : 'Team created', 'success');
+        navigate(`/admin/teams/${created.id}`);
+      } catch (error) {
+        showToast(describeError(error as Error) ?? 'Create failed', 'error');
+      }
+      return;
+    }
+
+    const newTeam = mockStore.createTeam(teamData);
 
     showToast(lang === 'fa' ? 'تیم ایجاد شد' : 'Team created', 'success');
     navigate(`/admin/teams/${newTeam.id}`);

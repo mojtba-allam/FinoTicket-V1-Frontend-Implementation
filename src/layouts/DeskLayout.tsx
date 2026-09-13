@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, Inbox, Users, Search, BookOpen, BarChart3, LogOut, Menu, Package, Tags, Building2, UserCheck, Shield, Workflow, Zap, Globe, Webhook, FileSearch, Ticket as TicketIcon, Clock } from 'lucide-react';
+import { LayoutDashboard, Inbox, Users, Search, BookOpen, BarChart3, LogOut, Menu, Package, Tags, Building2, UserCheck, Shield, Workflow, Zap, Globe, Webhook, FileSearch, Ticket as TicketIcon, Clock, Code2 } from 'lucide-react';
 import { NotificationCenter } from '../components/NotificationCenter';
 import { PresenceSelect } from '../components/PresenceSelect';
 import { ImpersonationBanner } from '../components/ImpersonationBanner';
 import { useApp } from '../app/providers';
 import { mockProducts } from '../data/mock';
 
-export default function DeskLayout() {
+export default function DeskLayout({ embedded = false }: { embedded?: boolean } = {}) {
   const { t, user, lang, setLang, product, setProduct, presence, setPresence } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showProductSwitch, setShowProductSwitch] = useState(false);
@@ -44,12 +44,27 @@ export default function DeskLayout() {
     { id: 'audit', icon: FileSearch, label: t.nav.audit_logs, path: '/admin/audit-logs', roles: ['OWNER', 'ADMIN', 'MANAGER'] },
   ];
 
+  /**
+   * Integration guide for the embeddable console (L11).
+   * Kept out of `adminItems` because it is a help page, not a management screen.
+   */
+  const helpItems = [
+    {
+      id: 'embed-help',
+      icon: Code2,
+      label: lang === 'fa' ? 'راهنمای جاسازی' : 'Embed guide',
+      path: '/help/embed',
+      roles: ['OWNER', 'ADMIN'],
+    },
+  ];
+
   const filteredNav = navItems.filter(i => i.roles.includes(user.role));
   const filteredAdmin = adminItems.filter(i => i.roles.includes(user.role));
+  const filteredHelp = helpItems.filter(i => i.roles.includes(user.role));
   const canAdmin = ['OWNER', 'ADMIN', 'MANAGER'].includes(user.role);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-alt">
+    <div className={`flex overflow-hidden bg-surface-alt ${embedded ? 'h-full min-h-[520px]' : 'h-screen'}`}>
       {/* Sidebar */}
       <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-white border-l border-border flex flex-col transition-all duration-200 shrink-0`}>
         {/* Logo */}
@@ -79,6 +94,22 @@ export default function DeskLayout() {
           
           {canAdmin && sidebarOpen && <div className="pt-3 pb-1 px-3"><span className="text-xs font-medium text-text-muted uppercase">{t.nav.admin}</span></div>}
           {canAdmin && filteredAdmin.map(item => (
+            <Link key={item.id} to={item.path}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${location.pathname.startsWith(item.path) ? 'bg-brand-50 text-brand-700 font-medium' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}`}>
+              <item.icon className="h-5 w-5 shrink-0" />
+              {sidebarOpen && <span>{item.label}</span>}
+            </Link>
+          ))}
+
+          {/* Help / integration docs — owners and admins only. */}
+          {filteredHelp.length > 0 && sidebarOpen && (
+            <div className="pt-3 pb-1 px-3">
+              <span className="text-xs font-medium text-text-muted uppercase">
+                {lang === 'fa' ? 'راهنما' : 'Help'}
+              </span>
+            </div>
+          )}
+          {filteredHelp.map(item => (
             <Link key={item.id} to={item.path}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${location.pathname.startsWith(item.path) ? 'bg-brand-50 text-brand-700 font-medium' : 'text-text-secondary hover:bg-surface-hover hover:text-text'}`}>
               <item.icon className="h-5 w-5 shrink-0" />
@@ -144,10 +175,12 @@ export default function DeskLayout() {
             {/* Notifications */}
             <NotificationCenter />
 
-            {/* Logout */}
-            <Link to="/login" className="p-2 rounded-lg hover:bg-surface-hover">
-              <LogOut className="h-5 w-5 text-text-secondary" />
-            </Link>
+            {/* Logout — the host owns the session in embedded mode. */}
+            {!embedded && (
+              <Link to="/login" className="p-2 rounded-lg hover:bg-surface-hover">
+                <LogOut className="h-5 w-5 text-text-secondary" />
+              </Link>
+            )}
           </div>
         </header>
 

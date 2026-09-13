@@ -2,17 +2,32 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, Plus, Building2 } from 'lucide-react';
 import { Button, Card, Badge, Modal, Input, Textarea, EmptyState } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection, describeError } from '../../lib/api/hooks';
+import { getDataApi } from '../../lib/api/dataApi';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
 
 export default function ProductDepartmentsPage() {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
   const { lang, showToast } = useApp();
-  
-  useMockStore();
-  const product = mockStore.getProduct(productId || '');
-  const departments = productId ? mockStore.getDepartmentsByProduct(productId) : [];
+
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: products, loading: productsLoading } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
+  const { data: allDepartments, loading: departmentsLoading } = useCollection(
+    () => mockStore.getDepartments(),
+    (api) => api.departments.list(),
+  );
+
+  const product = productId ? products.find(item => item.id === productId) ?? null : null;
+  const departments = productId
+    ? allDepartments.filter(dept => dept.product_id === productId)
+    : [];
+  const loading = productsLoading || departmentsLoading;
 
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
@@ -20,6 +35,7 @@ export default function ProductDepartmentsPage() {
   const [description, setDescription] = useState('');
 
   if (!product) {
+    if (loading) return null;
     return (
       <div className="p-6">
         <div className="text-center py-12">
@@ -32,12 +48,31 @@ export default function ProductDepartmentsPage() {
     );
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim() || !slug.trim()) {
       showToast(lang === 'fa' ? 'لطفاً تمام فیلدها را پر کنید' : 'Please fill all fields', 'error');
       return;
     }
-    
+
+    if (isLiveMode()) {
+      try {
+        await getDataApi().departments.create({
+          name,
+          slug,
+          product_id: product.id,
+        });
+        showToast(lang === 'fa' ? 'دپارتمان ایجاد شد' : 'Department created', 'success');
+        setShowCreate(false);
+        setName('');
+        setSlug('');
+        setDescription('');
+        window.location.reload();
+      } catch (error) {
+        showToast(describeError(error as Error) ?? 'Create failed', 'error');
+      }
+      return;
+    }
+
     mockStore.createDepartment({
       tenant_id: product.tenant_id,
       product_id: product.id,

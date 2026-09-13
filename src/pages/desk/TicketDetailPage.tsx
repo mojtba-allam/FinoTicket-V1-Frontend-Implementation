@@ -6,6 +6,9 @@ import { SLACountdown } from '../../components/SLACountdown';
 import { TagInput } from '../../components/TagInput';
 import { Timeline, type TimelineEvent } from '../../components/Timeline';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { useCollection, describeError } from '../../lib/api/hooks';
+import { getDataApi } from '../../lib/api/dataApi';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
 import { useCanMutate } from '../../components/ProtectedRoute';
 import { mockAIAnalyses } from '../../data/mock';
@@ -17,14 +20,24 @@ export default function TicketDetailPage() {
   
   // Check if user can mutate (not VIEWER)
   const canMutate = useCanMutate();
-  
-  // Subscribe to store changes for reactivity
+  const live = isLiveMode();
+
+  // Subscribe to store changes for mock-mode reactivity
   useMockStore();
-  
-  // Get ticket from mockStore (live data)
-  const ticket = mockStore.getTicket(id || '');
-  const messages = mockStore.getMessages(id || '');
-  const historyEvents = mockStore.getTicketHistory(id || '');
+
+  // Live mode loads the ticket from the API; mock mode reads the store.
+  const { data: ticket, loading, error, reload } = useCollection(
+    () => mockStore.getTicket(id || ''),
+    (api) => api.tickets.get(id || ''),
+  );
+
+  // Messages follow the same rule.
+  const { data: messages, reload: reloadMessages } = useCollection(
+    () => mockStore.getMessages(id || ''),
+    (api) => api.tickets.messages(id || ''),
+  );
+
+  const historyEvents = live ? [] : mockStore.getTicketHistory(id || '');
   
   const [reply, setReply] = useState('');
   const [isInternal, setIsInternal] = useState(false);
@@ -57,6 +70,30 @@ export default function TicketDetailPage() {
     return [...historyEvents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [historyEvents]);
 
+  if (loading && !ticket) {
+    return (
+      <div className="p-6">
+        <Card>
+          <p className="text-text-muted">{lang === 'fa' ? 'در حال بارگذاری…' : 'Loading…'}</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error && !ticket) {
+    return (
+      <div className="p-6 space-y-4">
+        <ErrorState
+          title={lang === 'fa' ? 'خطا در بارگذاری تیکت' : 'Failed to load ticket'}
+          description={describeError(error) ?? undefined}
+        />
+        <Button variant="secondary" onClick={reload}>
+          {lang === 'fa' ? 'تلاش دوباره' : 'Retry'}
+        </Button>
+      </div>
+    );
+  }
+
   if (!ticket) {
     return (
       <div className="p-6">
@@ -67,44 +104,59 @@ export default function TicketDetailPage() {
 
   const analyses = mockAIAnalyses.filter(a => a.ticket_id === id);
 
-  // Get available departments for this product
-  const availableDepartments = useMemo(() => {
-    return mockStore.getDepartmentsByProduct(ticket.product_id);
-  }, [ticket.product_id]);
+  // Cascade sources for the assign modal. Loaded from the API in live mode so
+  // only valid department → team → agent combinations are offered.
+  const { data: allDepartments } = useCollection(
+    () => mockStore.getDepartments(),
+    (api) => api.departments.list(),
+  );
 
-  // Get available teams based on selected department
+  const { data: allTeamsList } = useCollection(
+    () => mockStore.getTeams(),
+    (api) => api.teams.list(),
+  );
+
+  const { data: allAgentsList } = useCollection(
+    () => mockStore.getAgents(),
+    (api) => api.agents.list(),
+  );
+
+  // Departments relevant to this ticket's product (falls back to all).
+  const availableDepartments = useMemo(() => {
+    if (!ticket.product_id) return allDepartments;
+    const scoped = allDepartments.filter(d => d.product_id === ticket.product_id);
+    return scoped.length > 0 ? scoped : allDepartments;
+  }, [allDepartments, ticket.product_id]);
+
+  // Teams for the selected department, plus category-scoped teams for this
+  // ticket's category, deduplicated.
   const availableTeams = useMemo(() => {
     if (!selectedDepartmentId) return [];
-    
-    // Get all teams for this department (both DEPARTMENT and CATEGORY scoped)
-    const deptTeams = mockStore.getTeamsByDepartment(selectedDepartmentId);
-    
-    // If ticket has a category, also include category-scoped teams for that category
-    if (ticket.category_id) {
-      const categoryTeams = mockStore.getTeamsByCategory(ticket.category_id);
-      // Combine and deduplicate
-      const allTeams = [...deptTeams, ...categoryTeams];
-      const uniqueTeams = allTeams.filter((team, index, self) => 
-        index === self.findIndex(t => t.id === team.id)
-      );
-      return uniqueTeams;
-    }
-    
-    return deptTeams;
-  }, [selectedDepartmentId, ticket.category_id]);
 
-  // Get available agents based on selected team
+    const deptTeams = allTeamsList.filter(t => t.department_id === selectedDepartmentId);
+
+    if (ticket.category_id) {
+      const categoryTeams = allTeamsList.filter(
+        t => t.scope === 'CATEGORY' && t.category_id === ticket.category_id,
+      );
+      return [...deptTeams, ...categoryTeams].filter(
+        (team, index, self) => index === self.findIndex(t => t.id === team.id),
+      );
+    }
+
+    return deptTeams;
+  }, [selectedDepartmentId, ticket.category_id, allTeamsList]);
+
+  // Agents who are members of the selected team.
   const availableAgents = useMemo(() => {
     if (!selectedTeamId) return [];
-    
-    const team = mockStore.getTeam(selectedTeamId);
-    if (!team) return [];
-    
-    // Get agents who are members of this team
-    return mockStore.getAgents().filter(agent => 
-      team.members.some(member => member.user_id === agent.user_id)
-    );
-  }, [selectedTeamId]);
+
+    const team = allTeamsList.find(t => t.id === selectedTeamId);
+    if (!team?.members?.length) return [];
+
+    const memberIds = new Set(team.members.map(m => m.user_id));
+    return allAgentsList.filter(agent => memberIds.has(agent.user_id));
+  }, [selectedTeamId, allTeamsList, allAgentsList]);
 
   // Handle department change - clear team and agent
   const handleDepartmentChange = (deptId: string) => {
@@ -176,78 +228,135 @@ export default function TicketDetailPage() {
     setSelectedAgentId('');
   };
 
-  const handleAssign = () => {
-    const department = selectedDepartmentId 
-      ? mockStore.getDepartment(selectedDepartmentId) 
+  const handleAssign = async () => {
+    const department = selectedDepartmentId
+      ? allDepartments.find(d => d.id === selectedDepartmentId)
       : null;
-    const team = selectedTeamId 
-      ? mockStore.getTeam(selectedTeamId) 
+    const team = selectedTeamId
+      ? allTeamsList.find(t => t.id === selectedTeamId)
       : null;
-    const agent = selectedAgentId 
-      ? mockStore.getAgents().find(a => a.user_id === selectedAgentId)
+    const agent = selectedAgentId
+      ? allAgentsList.find(a => a.user_id === selectedAgentId)
       : null;
 
-    mockStore.assignCascade(ticket.id, {
-      department_id: department?.id,
-      department_name: department?.name,
-      team_id: team?.id,
-      team_name: team?.name,
-      assignee_id: agent?.user_id,
-      assignee_name: agent?.display_name,
-    });
-    
-    showToast(lang === 'fa' ? 'تیکت ارجاع شد' : 'Ticket assigned', 'success');
-    setShowAssignModal(false);
-    
-    // Reset cascade state
-    setSelectedDepartmentId('');
-    setSelectedTeamId('');
-    setSelectedAgentId('');
+    try {
+      if (live) {
+        // Live mode: the API validates the department → team → agent cascade.
+        await getDataApi().tickets.assign(ticket.id, {
+          department_id: department?.id,
+          team_id: team?.id,
+          assigned_user_id: agent?.user_id,
+        });
+        reload();
+      } else {
+        mockStore.assignCascade(ticket.id, {
+          department_id: department?.id,
+          department_name: department?.name,
+          team_id: team?.id,
+          team_name: team?.name,
+          assignee_id: agent?.user_id,
+          assignee_name: agent?.display_name,
+        });
+      }
+
+      showToast(lang === 'fa' ? 'تیکت ارجاع شد' : 'Ticket assigned', 'success');
+      setShowAssignModal(false);
+
+      // Reset cascade state
+      setSelectedDepartmentId('');
+      setSelectedTeamId('');
+      setSelectedAgentId('');
+    } catch (err) {
+      showToast(describeError(err as Error) ?? 'Assign failed', 'error');
+    }
   };
 
-  const handleStatusChange = (status: any) => {
-    mockStore.changeTicketStatus(ticket.id, status, statusNote);
-    showToast(lang === 'fa' ? 'وضعیت تغییر کرد' : 'Status changed');
-    setShowStatusModal(false);
-    setStatusNote('');
+  const handleStatusChange = async (status: any) => {
+    try {
+      if (live) {
+        await getDataApi().tickets.changeStatus(ticket.id, status, statusNote);
+        reload();
+      } else {
+        mockStore.changeTicketStatus(ticket.id, status, statusNote);
+      }
+
+      showToast(lang === 'fa' ? 'وضعیت تغییر کرد' : 'Status changed');
+      setShowStatusModal(false);
+      setStatusNote('');
+    } catch (err) {
+      showToast(describeError(err as Error) ?? 'Status update failed', 'error');
+    }
   };
 
-  const handlePriorityChange = (priority: any) => {
-    mockStore.changeTicketPriority(ticket.id, priority, priorityNote);
-    showToast(lang === 'fa' ? 'اولویت تغییر کرد' : 'Priority changed');
-    setShowPriorityModal(false);
-    setPriorityNote('');
+  const handlePriorityChange = async (priority: any) => {
+    try {
+      if (live) {
+        await getDataApi().tickets.changePriority(ticket.id, priority, priorityNote);
+        reload();
+      } else {
+        mockStore.changeTicketPriority(ticket.id, priority, priorityNote);
+      }
+
+      showToast(lang === 'fa' ? 'اولویت تغییر کرد' : 'Priority changed');
+      setShowPriorityModal(false);
+      setPriorityNote('');
+    } catch (err) {
+      showToast(describeError(err as Error) ?? 'Priority update failed', 'error');
+    }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!reply.trim() && pendingAttachments.length === 0) return;
-    
-    // Convert pending files to attachments
-    const attachments = pendingAttachments.map(file => ({
-      id: `att-${Date.now()}-${Math.random()}`,
-      filename: file.name,
-      mime_type: file.type,
-      size: file.size,
-      url: URL.createObjectURL(file),
-      uploader_id: 'u-001',
-      uploader_name: 'علی محمدی',
-      created_at: new Date().toISOString(),
-    }));
-    
-    mockStore.addMessage({
-      ticket_id: ticket.id,
-      sender_type: 'AGENT',
-      sender_id: 'u-001',
-      sender_name: 'علی محمدی',
-      body: reply,
-      is_internal: isInternal,
-      channel: 'WEB',
-      attachments,
-    });
-    
-    setReply('');
-    setPendingAttachments([]);
-    showToast(lang === 'fa' ? 'پیام ارسال شد' : 'Message sent');
+
+    try {
+      if (live) {
+        if (reply.trim()) {
+          await getDataApi().tickets.addMessage(ticket.id, {
+            body: reply,
+            is_internal: isInternal,
+          });
+        }
+
+        // Attachments upload separately (multipart) once the ticket exists.
+        for (const file of pendingAttachments) {
+          await getDataApi().tickets.uploadAttachment(ticket.id, file);
+        }
+
+        // Reload the ticket (activity timestamps) AND the message thread so the
+        // just-sent reply appears immediately — no manual refresh needed.
+        reload();
+        reloadMessages();
+      } else {
+        // Convert pending files to attachments
+        const attachments = pendingAttachments.map(file => ({
+          id: `att-${Date.now()}-${Math.random()}`,
+          filename: file.name,
+          mime_type: file.type,
+          size: file.size,
+          url: URL.createObjectURL(file),
+          uploader_id: 'u-001',
+          uploader_name: 'علی محمدی',
+          created_at: new Date().toISOString(),
+        }));
+
+        mockStore.addMessage({
+          ticket_id: ticket.id,
+          sender_type: 'AGENT',
+          sender_id: 'u-001',
+          sender_name: 'علی محمدی',
+          body: reply,
+          is_internal: isInternal,
+          channel: 'WEB',
+          attachments,
+        });
+      }
+
+      setReply('');
+      setPendingAttachments([]);
+      showToast(lang === 'fa' ? 'پیام ارسال شد' : 'Message sent');
+    } catch (err) {
+      showToast(describeError(err as Error) ?? 'Message failed', 'error');
+    }
   };
 
   const handleTagsChange = (newTags: string[]) => {

@@ -1,17 +1,30 @@
 import React from 'react';
 import { Building2, Users, Ticket, AlertTriangle } from 'lucide-react';
 import { Card, KPICard } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 
 export default function PlatformOverviewPage() {
   const { lang } = useApp();
-  useMockStore();
-  
-  const tenants = mockStore.getTenants();
-  const products = mockStore.getProducts();
-  const tickets = mockStore.getTickets();
-  const agents = mockStore.getAgents();
+
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: tenants } = useCollection(
+    () => mockStore.getTenants(),
+    (api) => api.tenants.list(),
+  );
+  const { data: products } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
+  const { data: tickets } = useCollection(
+    () => mockStore.getTickets(),
+    (api) => api.tickets.list(),
+  );
+  const { data: agents } = useCollection(
+    () => mockStore.getAgents(),
+    (api) => api.agents.list(),
+  );
 
   const activeTenants = tenants.filter(t => t.status === 'ACTIVE').length;
   const suspendedTenants = tenants.filter(t => t.status === 'SUSPENDED').length;

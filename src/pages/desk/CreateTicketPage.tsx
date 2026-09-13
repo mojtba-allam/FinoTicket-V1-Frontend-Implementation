@@ -2,7 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Textarea, Select, Card, FileUpload } from '../../components/ui';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
-import { mockCustomers } from '../../data/mock';
+import { useCollection, describeError } from '../../lib/api/hooks';
+import { getDataApi } from '../../lib/api/dataApi';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
 import { useCanMutate } from '../../components/ProtectedRoute';
 
@@ -10,6 +12,7 @@ export default function CreateTicketPage() {
   const { t, lang, showToast, product } = useApp();
   const navigate = useNavigate();
   const canMutate = useCanMutate();
+  const live = isLiveMode();
   useMockStore();
 
   // VIEWER gate - redirect to forbidden
@@ -32,47 +35,76 @@ export default function CreateTicketPage() {
   const [teamId, setTeamId] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
 
-  // Get departments for current product
-  const departments = useMemo(() => {
-    return mockStore.getDepartmentsByProduct(product.id);
-  }, [product.id]);
+  // Customers come from the API in live mode, the store in mock mode.
+  const { data: customers } = useCollection(
+    () => mockStore.getCustomers(),
+    (api) => api.customers.list(),
+  );
 
-  // Get categories for selected department
-  const categories = useMemo(() => {
-    if (!departmentId) return [];
-    return mockStore.getCategoriesByDepartment(departmentId);
-  }, [departmentId]);
+  // Taxonomy cascades. Each level is fetched scoped to its parent so live mode
+  // never mixes mock UUIDs into a real ticket (the API accepts ?parent_id).
+  const { data: departments } = useCollection(
+    () => mockStore.getDepartmentsByProduct(product.id),
+    (api) => api.departments.list(product.id),
+  );
 
-  // Get topics for selected category
-  const topics = useMemo(() => {
-    if (!categoryId) return [];
-    return mockStore.getTopicsByCategory(categoryId);
-  }, [categoryId]);
+  const { data: categories } = useCollection(
+    () => (departmentId ? mockStore.getCategoriesByDepartment(departmentId) : []),
+    (api) => (departmentId ? api.categories.list(departmentId) : Promise.resolve([])),
+    [departmentId],
+  );
 
-  // Get teams for selected department (and optionally category)
-  const teams = useMemo(() => {
-    if (!departmentId) return [];
-    const deptTeams = mockStore.getTeamsByDepartment(departmentId);
-    if (categoryId) {
-      const categoryTeams = mockStore.getTeamsByCategory(categoryId);
-      // Combine and deduplicate
-      const allTeams = [...deptTeams, ...categoryTeams];
-      return allTeams.filter((team, index, self) => 
-        index === self.findIndex(t => t.id === team.id)
+  const { data: topics } = useCollection(
+    () => (categoryId ? mockStore.getTopicsByCategory(categoryId) : []),
+    (api) => (categoryId ? api.topics.list(categoryId) : Promise.resolve([])),
+    [categoryId],
+  );
+
+  // Teams: department-scoped plus, when a category is chosen, category-scoped
+  // teams for that category — deduplicated.
+  const { data: teams } = useCollection(
+    () => {
+      if (!departmentId) return [];
+      const deptTeams = mockStore.getTeamsByDepartment(departmentId);
+      const catTeams = categoryId ? mockStore.getTeamsByCategory(categoryId) : [];
+      return [...deptTeams, ...catTeams].filter(
+        (team, index, self) => index === self.findIndex(t => t.id === team.id),
       );
-    }
-    return deptTeams;
-  }, [departmentId, categoryId]);
+    },
+    async (api) => {
+      if (!departmentId) return [];
+      const deptTeams = await api.teams.list(departmentId);
+      if (!categoryId) return deptTeams;
+      const all = await api.teams.list();
+      const catTeams = all.filter(t => t.scope === 'CATEGORY' && t.category_id === categoryId);
+      return [...deptTeams, ...catTeams].filter(
+        (team, index, self) => index === self.findIndex(t => t.id === team.id),
+      );
+    },
+    [departmentId, categoryId],
+  );
 
-  // Get agents for selected team
-  const agents = useMemo(() => {
-    if (!teamId) return [];
-    const team = mockStore.getTeam(teamId);
-    if (!team) return [];
-    return mockStore.getAgents().filter(agent => 
-      team.members.some(member => member.user_id === agent.user_id)
-    );
-  }, [teamId]);
+  // Agents: members of the selected team.
+  const { data: agents } = useCollection(
+    () => {
+      if (!teamId) return [];
+      const team = mockStore.getTeam(teamId);
+      if (!team) return [];
+      return mockStore.getAgents().filter(agent =>
+        team.members.some(member => member.user_id === agent.user_id),
+      );
+    },
+    async (api) => {
+      if (!teamId) return [];
+      const all = await api.teams.list();
+      const team = all.find(t => t.id === teamId);
+      if (!team?.members?.length) return [];
+      const memberIds = new Set(team.members.map(m => m.user_id));
+      const allAgents = await api.agents.list();
+      return allAgents.filter(agent => memberIds.has(agent.user_id));
+    },
+    [teamId],
+  );
 
   // Cascade handlers - clear children when parent changes
   const handleDepartmentChange = (deptId: string) => {
@@ -136,9 +168,9 @@ export default function CreateTicketPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate required fields
     const newErrors: { subject?: string; customer?: string } = {};
     if (!subject.trim()) {
@@ -147,15 +179,45 @@ export default function CreateTicketPage() {
     if (!customer) {
       newErrors.customer = lang === 'fa' ? 'مشتری الزامی است' : 'Customer is required';
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
     setErrors({});
 
-    const selectedCustomer = mockCustomers.find(c => c.id === customer);
+    // ---- Live mode: create through the API -------------------------------
+    if (live) {
+      try {
+        const created = await getDataApi().tickets.create({
+          customer_id: customer,
+          subject,
+          body: description,
+          priority,
+          channel: 'WEB',
+          source: 'WEB',
+          department_id: departmentId || undefined,
+          category_id: categoryId || undefined,
+          topic_id: topicId || undefined,
+        });
+
+        // Attachments upload separately against the created ticket.
+        for (const file of pendingAttachments) {
+          await getDataApi().tickets.uploadAttachment(created.id, file);
+        }
+
+        showToast(lang === 'fa' ? 'تیکت با موفقیت ایجاد شد' : 'Ticket created successfully', 'success');
+        navigate(`/desk/tickets/${created.id}`);
+      } catch (error) {
+        showToast(describeError(error as Error) ?? 'Create failed', 'error');
+      }
+
+      return;
+    }
+
+    // ---- Mock mode -------------------------------------------------------
+    const selectedCustomer = customers.find(c => c.id === customer);
     const selectedDepartment = departmentId ? mockStore.getDepartment(departmentId) : null;
     const selectedCategory = categoryId ? mockStore.getCategory(categoryId) : null;
     const selectedTopic = topicId ? mockStore.getTopics().find(t => t.id === topicId) : null;
@@ -256,7 +318,7 @@ export default function CreateTicketPage() {
           <div className="grid grid-cols-2 gap-4">
             <Select 
               label={lang === 'fa' ? 'مشتری' : 'Customer'} 
-              options={mockCustomers.map(c => ({ value: c.id, label: c.display_name }))} 
+              options={customers.map(c => ({ value: c.id, label: c.display_name }))} 
               value={customer} 
               onChange={(v) => {
                 setCustomer(v);

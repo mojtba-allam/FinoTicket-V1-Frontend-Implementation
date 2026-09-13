@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Badge, SearchInput } from '../../components/ui';
+import { Card, Badge, SearchInput, EmptyState } from '../../components/ui';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 
 export default function KnowledgePage() {
@@ -10,8 +11,18 @@ export default function KnowledgePage() {
   const navigate = useNavigate();
   useMockStore();
 
-  const knowledgeBases = mockStore.getKnowledgeBases();
-  const publishedArticles = mockStore.getPublishedArticles();
+  const { data: knowledgeBases } = useCollection(
+    () => mockStore.getKnowledgeBases(),
+    (api) => api.knowledgeBases.list(),
+  );
+
+  // Only published articles are shown to agents in the reader.
+  const { data: allArticles, loading } = useCollection(
+    () => mockStore.getPublishedArticles(),
+    (api) => api.articles.list(),
+  );
+
+  const publishedArticles = allArticles.filter(a => a.status === 'PUBLISHED');
 
   const filtered = publishedArticles.filter(a => 
     !search || 
@@ -86,6 +97,7 @@ export default function KnowledgePage() {
                 </Card>
               </div>
             ))}
+            {filtered.length === 0 && !loading && <EmptyState title={t.common.empty} />}
           </div>
         </div>
       </div>

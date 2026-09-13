@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './app/providers';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -61,22 +61,67 @@ import PlatformAuditPage from './pages/platform/PlatformAuditPage';
 // Error pages
 import { ForbiddenPage, NotFoundPage } from './pages/system/ErrorPages';
 
-export default function App() {
+// Help / docs
+import EmbedHelpPage from './pages/help/EmbedHelpPage';
+
+export default function App({
+  embedded = false,
+  locale = 'fa',
+}: {
+  /** Rendered inside the <fino-console> shadow root: no host document touched. */
+  embedded?: boolean;
+  /** Initial UI language, injected by the embed host. */
+  locale?: 'fa' | 'en';
+} = {}) {
   return (
-    <AppProvider>
-      <ErrorBoundary>
-        <HashRouter>
-          <Routes>
-            {/* Public routes (no layout) */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/privacy" element={<LegalPage type="privacy" />} />
-            <Route path="/terms" element={<LegalPage type="terms" />} />
-            <Route path="/widget" element={<WidgetPage />} />
+    <AppProvider embedded={embedded} initialLocale={locale}>
+      <ErrorBoundary>{embedded ? <ConsoleRoutes embedded /> : <StandaloneApp embedded={embedded} />}</ErrorBoundary>
+    </AppProvider>
+  );
+}
+
+/** The normal SPA: owns its router and shows the public pages. */
+function StandaloneApp({ embedded }: { embedded: boolean }) {
+  return (
+    <HashRouter>
+      <ConsoleRoutes embedded={embedded} withPublicRoutes />
+    </HashRouter>
+  );
+}
+
+/**
+ * The route tree, router-agnostic.
+ *
+ * In embedded mode the host-provided router (see src/embed/embedRoot.tsx) wraps
+ * this, so we must NOT create another one here. Public marketing routes are
+ * omitted from the embed — there is no landing page inside a shadow root.
+ */
+export function ConsoleRoutes({
+  embedded = false,
+  withPublicRoutes = false,
+}: {
+  embedded?: boolean;
+  withPublicRoutes?: boolean;
+} = {}) {
+  return (
+    <Routes>
+      {withPublicRoutes && (
+        <>
+          {/* Public routes (no layout) */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/privacy" element={<LegalPage type="privacy" />} />
+          <Route path="/terms" element={<LegalPage type="terms" />} />
+          <Route path="/widget" element={<WidgetPage />} />
+        </>
+      )}
+
+      {/* Deep link straight into the console when embedded. */}
+      {embedded && <Route path="/" element={<Navigate to="/desk/tickets" replace />} />}
 
             {/* Desk routes (with sidebar layout) */}
-            <Route element={<DeskLayout />}>
+            <Route element={<DeskLayout embedded={embedded} />}>
               <Route path="/desk" element={<ProtectedRoute consoleType="tenant"><DeskPage /></ProtectedRoute>} />
               <Route path="/desk/tickets" element={<ProtectedRoute consoleType="tenant"><TicketListPage /></ProtectedRoute>} />
               <Route path="/desk/tickets/new" element={<ProtectedRoute consoleType="tenant"><CreateTicketPage /></ProtectedRoute>} />
@@ -116,6 +161,16 @@ export default function App() {
 
               {/* Error routes (with layout) */}
               <Route path="/forbidden" element={<ForbiddenPage />} />
+
+              {/* Integration guide — the embeddable console (L11). */}
+              <Route
+                path="/help/embed"
+                element={
+                  <ProtectedRoute consoleType="tenant" allowedRoles={['ADMIN', 'OWNER']}>
+                    <EmbedHelpPage />
+                  </ProtectedRoute>
+                }
+              />
             </Route>
 
             {/* Platform routes (with platform layout) */}
@@ -129,9 +184,6 @@ export default function App() {
 
             {/* 404 (no layout) */}
             <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </HashRouter>
-      </ErrorBoundary>
-    </AppProvider>
+    </Routes>
   );
 }

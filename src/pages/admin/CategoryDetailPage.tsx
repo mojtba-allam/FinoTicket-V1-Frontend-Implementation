@@ -2,21 +2,57 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, Plus, Tag, Users, UserCheck } from 'lucide-react';
 import { Button, Card, Badge, Modal, Input, Textarea, EmptyState, Tabs } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection, describeError } from '../../lib/api/hooks';
+import { getDataApi } from '../../lib/api/dataApi';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
 
 export default function CategoryDetailPage() {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
   const { lang, showToast } = useApp();
-  
-  useMockStore();
-  const category = mockStore.getCategory(categoryId || '');
-  const topics = categoryId ? mockStore.getTopicsByCategory(categoryId) : [];
-  const department = category ? mockStore.getDepartment(category.department_id) : null;
-  const product = department ? mockStore.getProduct(department.product_id) : null;
-  const categoryTeams = categoryId ? mockStore.getTeamsByCategory(categoryId) : [];
-  const agents = mockStore.getAgents();
+
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: categories, loading: categoriesLoading } = useCollection(
+    () => mockStore.getCategories(),
+    (api) => api.categories.list(),
+  );
+  const { data: allTopics, loading: topicsLoading } = useCollection(
+    () => mockStore.getTopics(),
+    (api) => api.topics.list(),
+  );
+  const { data: departments, loading: departmentsLoading } = useCollection(
+    () => mockStore.getDepartments(),
+    (api) => api.departments.list(),
+  );
+  const { data: products, loading: productsLoading } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
+  const { data: allTeams, loading: teamsLoading } = useCollection(
+    () => mockStore.getTeams(),
+    (api) => api.teams.list(),
+  );
+  const { data: allAgents, loading: agentsLoading } = useCollection(
+    () => mockStore.getAgents(),
+    (api) => api.agents.list(),
+  );
+
+  const loading =
+    categoriesLoading ||
+    topicsLoading ||
+    departmentsLoading ||
+    productsLoading ||
+    teamsLoading ||
+    agentsLoading;
+
+  const category = categoryId ? categories.find(item => item.id === categoryId) ?? null : null;
+  const topics = categoryId ? allTopics.filter(topic => topic.category_id === categoryId) : [];
+  const department = category ? departments.find(item => item.id === category.department_id) ?? null : null;
+  const product = department ? products.find(item => item.id === department.product_id) ?? null : null;
+  const categoryTeams = categoryId ? allTeams.filter(team => team.category_id === categoryId) : [];
+  const agents = allAgents;
 
   const [activeTab, setActiveTab] = useState('topics');
   const [showCreate, setShowCreate] = useState(false);
@@ -30,6 +66,7 @@ export default function CategoryDetailPage() {
   };
 
   if (!category) {
+    if (loading) return null;
     return (
       <div className="p-6">
         <div className="text-center py-12">
@@ -42,12 +79,31 @@ export default function CategoryDetailPage() {
     );
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim() || !slug.trim()) {
       showToast(lang === 'fa' ? 'لطفاً تمام فیلدها را پر کنید' : 'Please fill all fields', 'error');
       return;
     }
-    
+
+    if (isLiveMode()) {
+      try {
+        await getDataApi().topics.create({
+          name,
+          slug,
+          category_id: category.id,
+        });
+        showToast(lang === 'fa' ? 'موضوع ایجاد شد' : 'Topic created', 'success');
+        setShowCreate(false);
+        setName('');
+        setSlug('');
+        setDescription('');
+        window.location.reload();
+      } catch (error) {
+        showToast(describeError(error as Error) ?? 'Create failed', 'error');
+      }
+      return;
+    }
+
     mockStore.createTopic({
       tenant_id: category.tenant_id,
       category_id: category.id,

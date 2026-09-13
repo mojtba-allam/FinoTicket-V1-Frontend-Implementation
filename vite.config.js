@@ -13,5 +13,17 @@ export default defineConfig({
     hmr: {
       port: 3000,
     },
+    // Live mode: keep the browser on :3000 and proxy API calls to Laravel.
+    proxy: {
+      "/api": {
+        target: process.env.VITE_API_BASE_URL || "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+    },
+  },
+  test: {
+    environment: "jsdom",
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    globals: true,
   },
 });

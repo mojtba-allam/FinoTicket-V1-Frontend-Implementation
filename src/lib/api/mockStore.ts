@@ -2,7 +2,7 @@
 // This provides in-memory persistence for all API operations with React reactivity
 
 import { mockTickets, mockCustomers, mockMessages, mockCategories, mockDepartments, mockTeams, mockAgents, mockSLAPolicies, mockKnowledgeBases, mockArticles, mockProducts, mockTopics, mockTenants, mockAPIClients, mockWebhooks, mockAuditLogs, mockAISuggestions } from '../../data/mock';
-import type { Ticket, Customer, Message, Category, Department, Team, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog, User, AISuggestion } from '../../types';
+import type { Ticket, Customer, Message, Category, Department, Team, TeamRole, Agent, SLAPolicy, KnowledgeBase, Article, Product, Workflow, WorkflowStep, Topic, Tenant, Address, CustomerIdentity, Attachment, Automation, APIClient, Webhook, AuditLog, User, AISuggestion } from '../../types';
 import type { TimelineEvent } from '../../components/Timeline';
 import type { Notification } from '../../components/NotificationCenter';
 
@@ -798,6 +798,32 @@ class MockStore {
     return this.teams[index];
   }
 
+  addTeamMember(id: string, member: { user_id: string; user_name?: string; role?: TeamRole }) {
+    const index = this.teams.findIndex(t => t.id === id);
+    if (index === -1) return null;
+    const team = this.teams[index];
+    if (team.members.some(m => m.user_id === member.user_id)) return team;
+    team.members = [
+      ...team.members,
+      {
+        user_id: member.user_id,
+        user_name: member.user_name || member.user_id,
+        role: member.role || 'MEMBER',
+      },
+    ];
+    this.notify();
+    return team;
+  }
+
+  removeTeamMember(id: string, userUuid: string) {
+    const index = this.teams.findIndex(t => t.id === id);
+    if (index === -1) return null;
+    const team = this.teams[index];
+    team.members = team.members.filter(m => m.user_id !== userUuid);
+    this.notify();
+    return team;
+  }
+
   // Agents
   getAgents() {
     return this.agents;
@@ -934,6 +960,43 @@ class MockStore {
     return newStep;
   }
 
+  updateWorkflow(id: string, updates: Partial<Workflow>) {
+    const workflow = this.getWorkflow(id);
+    if (!workflow) return null;
+
+    // Structural edits bump the version, mirroring the API.
+    if (updates.name !== undefined || updates.event !== undefined) {
+      workflow.version++;
+    }
+
+    Object.assign(workflow, updates);
+    this.notify();
+    return workflow;
+  }
+
+  reorderWorkflowSteps(workflowId: string, stepKeys: string[]) {
+    const workflow = this.getWorkflow(workflowId);
+    if (!workflow) return false;
+
+    const sorted: WorkflowStep[] = [];
+    for (const key of stepKeys) {
+      const step = workflow.steps.find(s => (s.step_key ?? s.id) === key);
+      if (step) sorted.push(step);
+    }
+    // Any steps not named keep their relative order at the end.
+    for (const step of workflow.steps) {
+      if (!sorted.includes(step)) sorted.push(step);
+    }
+
+    sorted.forEach((step, idx) => {
+      step.sort_order = idx;
+    });
+    workflow.steps = sorted;
+    workflow.version++;
+    this.notify();
+    return true;
+  }
+
   updateWorkflowStep(workflowId: string, stepId: string, updates: Partial<WorkflowStep>) {
     const workflow = this.getWorkflow(workflowId);
     if (!workflow) return null;
@@ -1051,6 +1114,14 @@ class MockStore {
     return this.apiClients[index];
   }
 
+  revokeAPIClient(id: string) {
+    const index = this.apiClients.findIndex(c => c.id === id);
+    if (index === -1) return false;
+    this.apiClients[index] = { ...this.apiClients[index], status: 'REVOKED' };
+    this.notify();
+    return true;
+  }
+
   rotateAPIClientSecret(id: string) {
     const client = this.getAPIClient(id);
     if (!client) return null;
@@ -1092,6 +1163,14 @@ class MockStore {
     this.webhooks[index] = { ...this.webhooks[index], ...updates };
     this.notify();
     return this.webhooks[index];
+  }
+
+  removeWebhook(id: string) {
+    const index = this.webhooks.findIndex(w => w.id === id);
+    if (index === -1) return false;
+    this.webhooks.splice(index, 1);
+    this.notify();
+    return true;
   }
 
   addWebhookDelivery(webhookId: string, delivery: any) {
@@ -1239,6 +1318,10 @@ class MockStore {
     
     this.notify();
     return newArticle;
+  }
+
+  publishArticle(id: string) {
+    return this.updateArticle(id, { status: 'PUBLISHED' });
   }
 
   updateArticle(id: string, updates: Partial<Article>) {

@@ -4,6 +4,8 @@ import { Plus, Inbox } from 'lucide-react';
 import { Button, SearchInput, Tabs, StatusBadge, EmptyState, Card } from '../../components/ui';
 import { FilterBar, useTicketFilters, type TicketFilters } from '../../components/FilterBar';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { useAsyncData, describeError } from '../../lib/api/hooks';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
 import { useCanMutate } from '../../components/ProtectedRoute';
 
@@ -16,11 +18,17 @@ export default function DeskPage() {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Subscribe to store changes for reactivity
+  // Mock mode stays reactive via the store; live mode fetches from the API.
   useMockStore();
+  const live = isLiveMode();
+  const { data: liveTickets, loading, error, reload } = useAsyncData(
+    (api) => api.tickets.list(),
+    [] as ReturnType<typeof mockStore.getTickets>,
+    [live],
+  );
 
-  // Get tickets from mockStore (live data)
-  const allTickets = mockStore.getTickets();
+  const allTickets = live ? liveTickets : mockStore.getTickets();
+  const errorMessage = describeError(error);
 
   // Apply tab filter
   const tabFiltered = useMemo(() => {

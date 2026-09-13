@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Button, SearchInput, Avatar, Badge, Card, Modal, Input, Select, EmptyState } from '../../components/ui';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { useCollection, describeError } from '../../lib/api/hooks';
+import { getDataApi } from '../../lib/api/dataApi';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
 
 export default function CustomersPage() {
@@ -15,11 +18,11 @@ export default function CustomersPage() {
   const [status, setStatus] = useState('ACTIVE');
   const navigate = useNavigate();
 
-  // Subscribe to store changes for reactivity
-  useMockStore();
-
-  // Get customers from mockStore (live data)
-  const allCustomers = mockStore.getCustomers();
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: allCustomers, loading } = useCollection(
+    () => mockStore.getCustomers(),
+    (api) => api.customers.list(),
+  );
 
   const filtered = allCustomers.filter(c => 
     !search || 
@@ -28,27 +31,33 @@ export default function CustomersPage() {
     c.profile.mobile?.includes(search)
   );
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!displayName.trim()) {
       showToast(lang === 'fa' ? 'لطفاً نام را وارد کنید' : 'Please enter a name', 'error');
       return;
     }
 
-    mockStore.createCustomer({
-      display_name: displayName,
-      status: status as any,
-      profile: {
-        email: email || undefined,
-        mobile: mobile || undefined,
-      },
-    });
+    try {
+      await getDataApi().customers.create({
+        display_name: displayName,
+        profile: {
+          email: email || undefined,
+          mobile: mobile || undefined,
+        },
+      });
 
-    showToast(lang === 'fa' ? 'مشتری با موفقیت ایجاد شد' : 'Customer created successfully', 'success');
-    setShowCreate(false);
-    setDisplayName('');
-    setEmail('');
-    setMobile('');
-    setStatus('ACTIVE');
+      showToast(lang === 'fa' ? 'مشتری با موفقیت ایجاد شد' : 'Customer created successfully', 'success');
+      setShowCreate(false);
+      setDisplayName('');
+      setEmail('');
+      setMobile('');
+      setStatus('ACTIVE');
+
+      // Live mode: refresh so the new customer appears immediately.
+      if (isLiveMode()) window.location.reload();
+    } catch (error) {
+      showToast(describeError(error as Error) ?? 'Create failed', 'error');
+    }
   };
 
   return (
@@ -110,7 +119,7 @@ export default function CustomersPage() {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && <EmptyState title={t.common.empty} />}
+        {filtered.length === 0 && !loading && <EmptyState title={t.common.empty} />}
       </Card>
 
       {/* Create Customer Modal */}

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, Plus, FolderTree, Users, UserCheck } from 'lucide-react';
 import { Button, Card, Badge, Modal, Input, Textarea, EmptyState, Tabs } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 
 export default function DepartmentDetailPage() {
@@ -10,12 +11,32 @@ export default function DepartmentDetailPage() {
   const navigate = useNavigate();
   const { lang, showToast } = useApp();
   
-  useMockStore();
-  const department = mockStore.getDepartment(departmentId || '');
-  const categories = departmentId ? mockStore.getCategoriesByDepartment(departmentId) : [];
-  const product = department ? mockStore.getProduct(department.product_id) : null;
-  const departmentTeams = departmentId ? mockStore.getTeamsByDepartment(departmentId) : [];
-  const agents = mockStore.getAgents();
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: allDepartments, loading } = useCollection(
+    () => mockStore.getDepartments(),
+    (api) => api.departments.list(),
+  );
+  const { data: allCategories } = useCollection(
+    () => mockStore.getCategories(),
+    (api) => api.categories.list(),
+  );
+  const { data: allProducts } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
+  const { data: allTeams } = useCollection(
+    () => mockStore.getTeams(),
+    (api) => api.teams.list(),
+  );
+  const { data: agents } = useCollection(
+    () => mockStore.getAgents(),
+    (api) => api.agents.list(),
+  );
+
+  const department = allDepartments.find(d => d.id === departmentId);
+  const categories = departmentId ? allCategories.filter(c => c.department_id === departmentId) : [];
+  const product = department ? allProducts.find(p => p.id === department.product_id) || null : null;
+  const departmentTeams = departmentId ? allTeams.filter(t => t.department_id === departmentId) : [];
 
   const [activeTab, setActiveTab] = useState('categories');
   const [showCreate, setShowCreate] = useState(false);
@@ -29,6 +50,7 @@ export default function DepartmentDetailPage() {
   };
 
   if (!department) {
+    if (loading) return null;
     return (
       <div className="p-6">
         <div className="text-center py-12">

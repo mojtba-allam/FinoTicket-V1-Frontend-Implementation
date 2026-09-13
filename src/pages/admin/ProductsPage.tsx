@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Button, Card, Badge, Modal, Input, Select } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 
 export default function AdminProductsPage() {
@@ -13,8 +14,11 @@ export default function AdminProductsPage() {
   const [slug, setSlug] = useState('');
   const [status, setStatus] = useState('ACTIVE');
 
-  useMockStore();
-  const products = mockStore.getProducts();
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: products } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
 
   const handleCreate = () => {
     if (!name.trim() || !slug.trim()) {

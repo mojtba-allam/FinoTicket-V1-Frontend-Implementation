@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, UserCheck, Users, Plus, X } from 'lucide-react';
 import { Button, Card, Badge, Modal, Input, Select, EmptyState } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 import type { TeamMember } from '../../types';
 
@@ -11,18 +12,39 @@ export default function TeamDetailPage() {
   const navigate = useNavigate();
   const { lang, showToast } = useApp();
   
-  useMockStore();
-  const team = mockStore.getTeam(teamId || '');
-  const agents = mockStore.getAgents();
-  const department = team ? mockStore.getDepartment(team.department_id) : null;
-  const product = department ? mockStore.getProduct(department.product_id) : null;
-  const category = team?.category_id ? mockStore.getCategory(team.category_id) : null;
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: allTeams, loading } = useCollection(
+    () => mockStore.getTeams(),
+    (api) => api.teams.list(),
+  );
+  const { data: agents } = useCollection(
+    () => mockStore.getAgents(),
+    (api) => api.agents.list(),
+  );
+  const { data: allDepartments } = useCollection(
+    () => mockStore.getDepartments(),
+    (api) => api.departments.list(),
+  );
+  const { data: allProducts } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
+  const { data: allCategories } = useCollection(
+    () => mockStore.getCategories(),
+    (api) => api.categories.list(),
+  );
+
+  const team = allTeams.find(t => t.id === teamId);
+  const department = team ? allDepartments.find(d => d.id === team.department_id) || null : null;
+  const product = department ? allProducts.find(p => p.id === department.product_id) || null : null;
+  const category = team?.category_id ? allCategories.find(c => c.id === team.category_id) || null : null;
 
   const [showAddMember, setShowAddMember] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [selectedRole, setSelectedRole] = useState<'LEAD' | 'MEMBER'>('MEMBER');
 
   if (!team) {
+    if (loading) return null;
     return (
       <div className="p-6">
         <div className="text-center py-12">

@@ -2,17 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Save, Eye } from 'lucide-react';
 import { Button, Input, Textarea, Select, Card, Badge } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection, describeError } from '../../lib/api/hooks';
+import { getDataApi } from '../../lib/api/dataApi';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
 
 export default function ArticleEditorPage() {
   const { kbId, articleId } = useParams();
   const navigate = useNavigate();
   const { lang, showToast } = useApp();
-  useMockStore();
 
-  const kb = kbId ? mockStore.getKnowledgeBase(kbId) : null;
-  const article = articleId ? mockStore.getArticle(articleId) : null;
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: knowledgeBases, loading: kbLoading } = useCollection(
+    () => mockStore.getKnowledgeBases(),
+    (api) => api.knowledgeBases.list(),
+  );
+  const { data: articles, loading: articlesLoading } = useCollection(
+    () => mockStore.getArticles(),
+    (api) => api.articles.list(),
+  );
+
+  const kb = kbId ? knowledgeBases.find(item => item.id === kbId) ?? null : null;
+  const article = articleId ? articles.find(item => item.id === articleId) ?? null : null;
+  const loading = kbLoading || articlesLoading;
 
   const [title, setTitle] = useState(article?.title || '');
   const [slug, setSlug] = useState(article?.slug || '');
@@ -30,7 +43,22 @@ export default function ArticleEditorPage() {
     }
   }, [title, slug, articleId]);
 
+  // Live mode resolves the article asynchronously; hydrate the form once.
+  const [hydratedArticleId, setHydratedArticleId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!article || hydratedArticleId === article.id) return;
+    setTitle(article.title);
+    setSlug(article.slug);
+    setContent(article.content);
+    setSummary(article.summary || '');
+    setStatus(article.status);
+    setVisibility(article.visibility);
+    setTags(article.tags);
+    setHydratedArticleId(article.id);
+  }, [article, hydratedArticleId]);
+
   if (!kb) {
+    if (loading) return null;
     return (
       <div className="p-6">
         <div className="text-center py-12">
@@ -45,7 +73,7 @@ export default function ArticleEditorPage() {
     );
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) {
       showToast(lang === 'fa' ? 'لطفاً عنوان را وارد کنید' : 'Please enter a title', 'error');
       return;
@@ -66,6 +94,22 @@ export default function ArticleEditorPage() {
       visibility,
       tags,
     };
+
+    if (isLiveMode()) {
+      try {
+        if (articleId && article) {
+          await getDataApi().articles.update(articleId, articleData);
+          showToast(lang === 'fa' ? 'مقاله بروزرسانی شد' : 'Article updated', 'success');
+        } else {
+          await getDataApi().articles.create(articleData);
+          showToast(lang === 'fa' ? 'مقاله ایجاد شد' : 'Article created', 'success');
+        }
+        navigate(`/admin/knowledge-bases/${kbId}/articles`);
+      } catch (error) {
+        showToast(describeError(error as Error) ?? 'Save failed', 'error');
+      }
+      return;
+    }
 
     if (articleId && article) {
       mockStore.updateArticle(articleId, articleData);

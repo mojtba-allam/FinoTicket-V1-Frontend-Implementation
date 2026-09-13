@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { Button, Card, Input, Select, Badge } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 import type { Channel, ProductStatus } from '../../types';
 
@@ -11,8 +12,12 @@ export default function AdminProductDetailPage() {
   const navigate = useNavigate();
   const { t, lang, showToast } = useApp();
   
-  useMockStore();
-  const product = mockStore.getProduct(id || '');
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: products, loading } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
+  const product = products.find(p => p.id === id);
 
   const [name, setName] = useState(product?.name || '');
   const [slug, setSlug] = useState(product?.slug || '');
@@ -37,6 +42,7 @@ export default function AdminProductDetailPage() {
   }, [product]);
 
   if (!product) {
+    if (loading) return null;
     return (
       <div className="p-6">
         <div className="text-center py-12">

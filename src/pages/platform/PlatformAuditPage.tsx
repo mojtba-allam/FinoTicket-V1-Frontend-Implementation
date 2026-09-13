@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
 import { FileSearch, Search } from 'lucide-react';
 import { Card, Badge, Input, Select } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
+import type { AuditLog } from '../../types';
 
 export default function PlatformAuditPage() {
   const { lang } = useApp();
-  useMockStore();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   
-  // Get audit logs from mockStore
-  const auditLogs = mockStore.getAuditLogs();
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: auditLogs, loading } = useCollection(
+    () => mockStore.getAuditLogs(),
+    (api) => api.auditLogs.list({ limit: 50 }) as unknown as Promise<AuditLog[]>,
+  );
 
   const filteredLogs = auditLogs.filter(log => {
     const matchesSearch = !searchTerm || 
@@ -95,7 +99,7 @@ export default function PlatformAuditPage() {
 
       {/* Audit Logs */}
       <Card>
-        {filteredLogs.length === 0 ? (
+        {filteredLogs.length === 0 && !loading ? (
           <div className="text-center py-12">
             <FileSearch className="h-12 w-12 text-text-muted mx-auto mb-4" />
             <p className="text-text-muted">

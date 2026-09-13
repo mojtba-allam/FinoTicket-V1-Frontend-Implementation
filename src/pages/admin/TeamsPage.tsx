@@ -2,16 +2,23 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, UserCheck } from 'lucide-react';
 import { Button, Card, Badge, EmptyState } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 
 export default function TeamsPage() {
   const navigate = useNavigate();
   const { lang } = useApp();
   
-  useMockStore();
-  const teams = mockStore.getTeams();
-  const agents = mockStore.getAgents();
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: teams, loading } = useCollection(
+    () => mockStore.getTeams(),
+    (api) => api.teams.list(),
+  );
+  const { data: agents } = useCollection(
+    () => mockStore.getAgents(),
+    (api) => api.agents.list(),
+  );
 
   const getLeadName = (team: any) => {
     const lead = team.members.find((m: any) => m.role === 'LEAD');
@@ -28,7 +35,7 @@ export default function TeamsPage() {
         </h1>
       </div>
 
-      {teams.length === 0 ? (
+      {teams.length === 0 && !loading ? (
         <EmptyState
           icon={<Users className="h-12 w-12 text-text-muted" />}
           title={lang === 'fa' ? 'هنوز تیمی ثبت نشده' : 'No teams yet'}

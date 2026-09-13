@@ -2,18 +2,38 @@ import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, Building2, Package, Users, Ticket, AlertTriangle } from 'lucide-react';
 import { Button, Card, Badge, KPICard } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 
 export default function PlatformTenantDetailPage() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const { lang, startImpersonation } = useApp();
   const navigate = useNavigate();
-  useMockStore();
-  
-  const tenant = mockStore.getTenants().find(t => t.id === tenantId);
+
+  // Live mode loads the collection from the API; mock mode reads the store.
+  const { data: tenants, loading } = useCollection(
+    () => mockStore.getTenants(),
+    (api) => api.tenants.list(),
+  );
+  const { data: allProducts } = useCollection(
+    () => mockStore.getProducts(),
+    (api) => api.products.list(),
+  );
+  const { data: allAgents } = useCollection(
+    () => mockStore.getAgents(),
+    (api) => api.agents.list(),
+  );
+  const { data: allTickets } = useCollection(
+    () => mockStore.getTickets(),
+    (api) => api.tickets.list(),
+  );
+
+  const tenant = tenants.find(t => t.id === tenantId);
 
   if (!tenant) {
+    if (loading) return null;
+
     return (
       <div className="p-6">
         <div className="text-center py-12">
@@ -28,9 +48,9 @@ export default function PlatformTenantDetailPage() {
     );
   }
 
-  const products = mockStore.getProducts().filter(p => p.tenant_id === tenant.id);
-  const agents = mockStore.getAgents().filter(a => a.tenant_id === tenant.id);
-  const tickets = mockStore.getTickets().filter(t => t.tenant_id === tenant.id);
+  const products = allProducts.filter(p => p.tenant_id === tenant.id);
+  const agents = allAgents.filter(a => a.tenant_id === tenant.id);
+  const tickets = allTickets.filter(t => t.tenant_id === tenant.id);
   const openTickets = tickets.filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS').length;
   const resolvedTickets = tickets.filter(t => t.status === 'RESOLVED' || t.status === 'CLOSED').length;
 

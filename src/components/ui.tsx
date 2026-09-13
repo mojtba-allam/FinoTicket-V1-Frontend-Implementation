@@ -102,7 +102,10 @@ export function Badge({ children, variant = 'default', className = '' }: {
 }
 
 // ========== STATUS BADGE ==========
-export function StatusBadge({ status, type = 'ticket' }: { status: string; type?: 'ticket' | 'priority' | 'sla' | 'presence' }) {
+export function StatusBadge({ status, type = 'ticket' }: { status?: string | null; type?: 'ticket' | 'priority' | 'sla' | 'presence' }) {
+  // API-driven records may omit these fields; render a neutral dash instead of crashing.
+  if (!status) return <span className="text-text-muted">—</span>;
+
   if (type === 'ticket') {
     const cls = `status-${status.toLowerCase()}`;
     const labels: Record<string, string> = { OPEN: 'باز', IN_PROGRESS: 'در حال بررسی', WAITING_CUSTOMER: 'در انتظار مشتری', WAITING_INTERNAL: 'در انتظار داخلی', RESOLVED: 'حل شده', CLOSED: 'بسته' };

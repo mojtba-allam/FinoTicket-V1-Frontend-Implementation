@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Ticket, Plus, History, Send, Home, ChevronLeft, Paperclip, X, Info, RefreshCw } from 'lucide-react';
 import { Button, Input, Textarea, FileUpload, Badge, Select } from '../../components/ui';
 import { mockProducts, mockCategories, mockTopics } from '../../data/mock';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { getDataApi } from '../../lib/api/dataApi';
+import { describeError } from '../../lib/api/hooks';
+import { isLiveMode } from '../../lib/api/config';
+import { sessionStore } from '../../lib/api/session';
 import { useApp } from '../../app/providers';
 
 type Screen = 'home' | 'new' | 'list' | 'conversation';
@@ -43,12 +47,14 @@ export default function WidgetPage() {
   // Toast
   const [showToast, setShowToast] = useState('');
 
+  const live = isLiveMode();
+
   // Mock product from query param or default
   const productId = searchParams.get('product') || 'p-001';
   const product = mockProducts.find(p => p.id === productId) || mockProducts[0];
   const branding = product.widget_branding!;
 
-  // Mock token (educational demo)
+  // Mock token (educational demo) — replaced by a real mint in live mode.
   const mockToken: MockToken = {
     tenant_id: 'ten-1',
     product_id: product.id,
@@ -59,6 +65,88 @@ export default function WidgetPage() {
     jti: `jti_${Math.random().toString(36).substring(2, 15)}`,
     iat: Math.floor(Date.now() / 1000),
   };
+
+  // ---------------------------------------------------------------------
+  // Live mode: mint a real widget token + load directory data from the API.
+  // ---------------------------------------------------------------------
+  const [liveToken, setLiveToken] = useState<string | null>(null);
+  const [liveProducts, setLiveProducts] = useState<typeof mockProducts>([]);
+  const [liveCategories, setLiveCategories] = useState<typeof mockCategories>([]);
+  const [liveTopics, setLiveTopics] = useState<typeof mockTopics>([]);
+  const [liveTickets, setLiveTickets] = useState<any[]>([]);
+  const [liveMessages, setLiveMessages] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!live) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const api = getDataApi();
+        const products = await api.products.list();
+        if (cancelled) return;
+        setLiveProducts(products as unknown as typeof mockProducts);
+
+        const active = products.find((p) => p.id === productId) ?? products[0];
+        if (!active) return;
+
+        // Mint a short-lived signed customer token for the widget.
+        const minted = await sessionStore.buildClient().auth.widgetToken(
+          searchParams.get('customer') || '',
+          ['tickets:create', 'tickets:read', 'tickets:reply'],
+        );
+        if (cancelled) return;
+        setLiveToken(minted.data.access_token ?? minted.data.token ?? null);
+
+        const [depts, cats] = await Promise.all([
+          api.departments.list(active.id),
+          api.categories.list(),
+        ]);
+        if (cancelled) return;
+
+        const deptIds = new Set(depts.map((d) => d.id));
+        const scoped = (cats as unknown as typeof mockCategories).filter(
+          (c) => !c.department_id || deptIds.has(c.department_id),
+        );
+        setLiveCategories(scoped);
+      } catch (err) {
+        if (!cancelled) {
+          setShowToast(describeError(err as Error) ?? '');
+          setTimeout(() => setShowToast(''), 3000);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, productId]);
+
+  useEffect(() => {
+    if (!live || !categoryId) {
+      setLiveTopics([]);
+      return;
+    }
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const topics = await getDataApi().topics.list(categoryId);
+        if (!cancelled) setLiveTopics(topics as unknown as typeof mockTopics);
+      } catch (err) {
+        if (!cancelled) {
+          setShowToast(describeError(err as Error) ?? '');
+          setTimeout(() => setShowToast(''), 3000);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, categoryId]);
 
   // Check token expiration
   useEffect(() => {
@@ -74,13 +162,81 @@ export default function WidgetPage() {
   }, []);
 
   // Get customer tickets
-  const customerTickets = mockStore.getTickets().filter(t => t.customer_id === mockToken.customer_id);
-  const selectedTicket = selectedTicketId ? mockStore.getTicket(selectedTicketId) : null;
-  const messages = selectedTicketId ? mockStore.getMessages(selectedTicketId) : [];
+  const mockCustomerTickets = mockStore.getTickets().filter(t => t.customer_id === mockToken.customer_id);
+  const customerTickets = live ? (liveTickets as unknown as typeof mockCustomerTickets) : mockCustomerTickets;
+  const selectedTicket = live
+    ? liveTickets.find((t) => t.id === selectedTicketId) ?? null
+    : selectedTicketId
+      ? mockStore.getTicket(selectedTicketId)
+      : null;
+  const messages = live
+    ? liveMessages
+    : selectedTicketId
+      ? mockStore.getMessages(selectedTicketId)
+      : [];
+
+  // Load the widget customer's tickets in live mode.
+  useEffect(() => {
+    if (!live || !liveToken) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const api = getDataApi();
+        const tickets = await api.tickets.list(undefined);
+        if (!cancelled) {
+          setLiveTickets(
+            tickets.filter((tk) => !searchParams.get('customer') || tk.customer_id === searchParams.get('customer')),
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setShowToast(describeError(err as Error) ?? '');
+          setTimeout(() => setShowToast(''), 3000);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, liveToken]);
+
+  // Load the selected ticket's conversation in live mode.
+  useEffect(() => {
+    if (!live || !selectedTicketId) {
+      setLiveMessages([]);
+      return;
+    }
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const api = getDataApi();
+        const msgs = await api.tickets.messages(selectedTicketId);
+        if (!cancelled) setLiveMessages(msgs);
+      } catch (err) {
+        if (!cancelled) {
+          setShowToast(describeError(err as Error) ?? '');
+          setTimeout(() => setShowToast(''), 3000);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, selectedTicketId]);
 
   // Get categories and topics
-  const categories = mockCategories;
-  const topics = categoryId ? mockTopics.filter(t => t.category_id === categoryId) : [];
+  const categories = live ? liveCategories : mockCategories;
+  const topics = live
+    ? liveTopics
+    : categoryId
+      ? mockTopics.filter(t => t.category_id === categoryId)
+      : [];
 
   // File upload validation
   const handleFileUpload = (files: File[]) => {
@@ -122,14 +278,56 @@ export default function WidgetPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const handleCreateTicket = () => {
+  const handleCreateTicket = async () => {
     if (!subject.trim() || !description.trim()) {
       setShowToast(lang === 'fa' ? 'لطفاً موضوع و توضیحات را وارد کنید' : 'Please enter subject and description');
       setTimeout(() => setShowToast(''), 3000);
       return;
     }
 
-    // Create ticket via mockStore
+    // ---- Live mode: create through the API (spec §24 widget surface). ----
+    if (live) {
+      try {
+        const api = getDataApi();
+        const created = await api.tickets.create({
+          customer_id: searchParams.get('customer') || '',
+          subject,
+          body: description,
+          priority: 'NORMAL',
+          channel: 'WIDGET',
+          source: 'WIDGET',
+          category_id: categoryId || undefined,
+          topic_id: topicId || undefined,
+        } as never);
+
+        for (const file of pendingAttachments) {
+          try {
+            await sessionStore.buildClient().tickets.uploadAttachment(created.id, file);
+          } catch {
+            // Attachment failures must not abort ticket creation.
+          }
+        }
+
+        setSubject('');
+        setDescription('');
+        setCategoryId('');
+        setTopicId('');
+        setPendingAttachments([]);
+
+        setLiveTickets((prev) => [created as never, ...prev]);
+        setSelectedTicketId(created.id);
+        setScreen('conversation');
+
+        setShowToast(lang === 'fa' ? 'تیکت با موفقیت ایجاد شد' : 'Ticket created successfully');
+        setTimeout(() => setShowToast(''), 3000);
+      } catch (err) {
+        setShowToast(describeError(err as Error) ?? '');
+        setTimeout(() => setShowToast(''), 4000);
+      }
+      return;
+    }
+
+    // ---- Mock mode ----
     const newTicket = mockStore.createTicket({
       tenant_id: mockToken.tenant_id,
       product_id: product.id,
@@ -181,8 +379,26 @@ export default function WidgetPage() {
     setTimeout(() => setShowToast(''), 3000);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!message.trim() || !selectedTicketId) return;
+
+    if (live) {
+      try {
+        const api = getDataApi();
+        const sent = await api.tickets.addMessage(selectedTicketId, {
+          body: message,
+          is_internal: false,
+        });
+        setLiveMessages((prev) => [...prev, sent as never]);
+        setMessage('');
+        setShowToast(lang === 'fa' ? 'پیام ارسال شد' : 'Message sent');
+        setTimeout(() => setShowToast(''), 2000);
+      } catch (err) {
+        setShowToast(describeError(err as Error) ?? '');
+        setTimeout(() => setShowToast(''), 4000);
+      }
+      return;
+    }
 
     mockStore.addMessage({
       ticket_id: selectedTicketId,
@@ -199,9 +415,23 @@ export default function WidgetPage() {
     setTimeout(() => setShowToast(''), 2000);
   };
 
-  const handleRefreshToken = () => {
-    // Mock token refresh
-    setShowToast(lang === 'fa' ? 'توکن با موفقیت بازیابی شد' : 'Token refreshed successfully');
+  const handleRefreshToken = async () => {
+    // Mint a fresh widget token (live) or just re-arm the demo token (mock).
+    if (live) {
+      try {
+        const minted = await sessionStore.buildClient().auth.widgetToken(
+          searchParams.get('customer') || '',
+          ['tickets:create', 'tickets:read', 'tickets:reply'],
+        );
+        setLiveToken(minted.data.access_token ?? minted.data.token ?? null);
+        setShowToast(lang === 'fa' ? 'توکن با موفقیت بازیابی شد' : 'Token refreshed successfully');
+      } catch (err) {
+        setShowToast(describeError(err as Error) ?? '');
+      }
+    } else {
+      setShowToast(lang === 'fa' ? 'توکن با موفقیت بازیابی شد' : 'Token refreshed successfully');
+    }
+
     setTokenExpired(false);
     setTimeout(() => setShowToast(''), 3000);
   };
@@ -496,7 +726,7 @@ export default function WidgetPage() {
                     <p className="text-sm">{msg.body}</p>
                     {msg.attachments.length > 0 && (
                       <div className="mt-2 space-y-1">
-                        {msg.attachments.map(att => (
+                        {msg.attachments.map((att: any) => (
                           <div key={att.id} className="flex items-center gap-2 text-xs">
                             <Paperclip className="h-3 w-3" />
                             <a href={att.url} download={att.filename} className="text-brand-600 hover:underline">

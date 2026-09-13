@@ -1,9 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Button, SearchInput, StatusBadge, EmptyState, Card, Badge, Skeleton } from '../../components/ui';
 import { FilterBar, useTicketFilters } from '../../components/FilterBar';
 import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { getDataApi } from '../../lib/api/dataApi';
+import { useAsyncData, describeError } from '../../lib/api/hooks';
+import { isLiveMode } from '../../lib/api/config';
 import { useApp } from '../../app/providers';
 import { useCanMutate } from '../../components/ProtectedRoute';
 
@@ -14,19 +17,17 @@ export default function TicketListPage() {
   const [filters, setFilters] = useTicketFilters();
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  // Subscribe to store changes for reactivity
+  // Mock mode keeps the in-memory store reactive; live mode fetches once.
   useMockStore();
+  const live = isLiveMode();
+  const { data: liveTickets, loading, error, reload } = useAsyncData(
+    (api) => api.tickets.list(),
+    [] as ReturnType<typeof mockStore.getTickets>,
+    [live],
+  );
 
-  // Simulate loading state
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 200);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Get tickets from mockStore (live data)
-  const allTickets = mockStore.getTickets();
+  const allTickets = live ? liveTickets : mockStore.getTickets();
 
   // Apply search + filters
   const filtered = useMemo(() => {
@@ -49,6 +50,8 @@ export default function TicketListPage() {
       return true;
     });
   }, [allTickets, search, filters]);
+
+  const errorMessage = describeError(error);
 
   return (
     <div className="p-6">
@@ -128,7 +131,15 @@ export default function TicketListPage() {
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && <EmptyState title={t.common.empty} />}
+        {errorMessage && (
+          <div className="border-t border-border bg-danger-50 px-4 py-3 flex items-center justify-between gap-3">
+            <span className="text-sm text-danger-600">{errorMessage}</span>
+            <Button variant="secondary" onClick={reload}>
+              {lang === 'fa' ? 'تلاش دوباره' : 'Retry'}
+            </Button>
+          </div>
+        )}
+        {!loading && !errorMessage && filtered.length === 0 && <EmptyState title={t.common.empty} />}
       </Card>
     </div>
   );

@@ -2,20 +2,35 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { Card, Badge, ErrorState } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 
 export default function ArticleReaderPage() {
   const { id } = useParams();
   const { t, lang } = useApp();
   const navigate = useNavigate();
-  useMockStore();
-  
-  const article = id ? mockStore.getArticle(id) : null;
 
-  if (!article) return <div className="p-6"><ErrorState title={lang === 'fa' ? 'مقاله یافت نشد' : 'Article not found'} /></div>;
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: articles, loading: articlesLoading } = useCollection(
+    () => mockStore.getArticles(),
+    (api) => api.articles.list(),
+  );
+  const { data: knowledgeBases, loading: kbLoading } = useCollection(
+    () => mockStore.getKnowledgeBases(),
+    (api) => api.knowledgeBases.list(),
+  );
 
-  const kb = mockStore.getKnowledgeBase(article.kb_id);
+  const article = id ? articles.find(item => item.id === id) ?? null : null;
+  const loading = articlesLoading || kbLoading;
+
+  // Keep loading: a live fetch may not have resolved yet, so don't flash "not found".
+  if (!article) {
+    if (loading) return null;
+    return <div className="p-6"><ErrorState title={lang === 'fa' ? 'مقاله یافت نشد' : 'Article not found'} /></div>;
+  }
+
+  const kb = knowledgeBases.find(item => item.id === article.kb_id);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">

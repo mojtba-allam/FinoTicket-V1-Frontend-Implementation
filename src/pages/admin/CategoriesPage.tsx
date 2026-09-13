@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Tags, Plus } from 'lucide-react';
 import { Card, Badge, Button, Modal, Input, Select } from '../../components/ui';
-import { mockStore, useMockStore } from '../../lib/api/mockStore';
+import { mockStore } from '../../lib/api/mockStore';
+import { useCollection } from '../../lib/api/hooks';
 import { useApp } from '../../app/providers';
 
 export default function AdminCategoriesPage() {
@@ -14,8 +15,11 @@ export default function AdminCategoriesPage() {
   const [parentId, setParentId] = useState('');
   const [status, setStatus] = useState('ACTIVE');
 
-  useMockStore();
-  const categories = mockStore.getCategories();
+  // Live mode loads from the API; mock mode reads the in-memory store.
+  const { data: categories } = useCollection(
+    () => mockStore.getCategories(),
+    (api) => api.categories.list(),
+  );
 
   const handleCreate = () => {
     if (!name.trim() || !slug.trim()) {

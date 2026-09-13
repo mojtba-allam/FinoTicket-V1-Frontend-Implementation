@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, X, Clock, AlertTriangle, MessageSquare, UserPlus, Shield } from 'lucide-react';
 import { Badge } from './ui';
 import { mockStore, useMockStore } from '../lib/api/mockStore';
+import { useCollection } from '../lib/api/hooks';
+import { useApp } from '../app/providers';
 
 export interface Notification {
   id: string;
@@ -50,10 +52,17 @@ export function NotificationCenter() {
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const { session } = useApp();
 
-  // Subscribe to store changes
-  useMockStore();
-  const notifications = mockStore.getNotifications();
+  // Live mode loads notifications from the API; mock mode reads the store.
+  // In an embed the layout mounts BEFORE the host hands over a token, so we
+  // must not fire an authenticated request yet — that would 401 (and surface
+  // as "session expired"). Skip until authenticated, then fetch once.
+  const { data: notifications } = useCollection(
+    () => mockStore.getNotifications(),
+    (api) => (session.isAuthenticated ? api.notifications.list() : Promise.resolve([] as Notification[])),
+    [session.isAuthenticated],
+  );
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
